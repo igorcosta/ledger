@@ -1500,7 +1500,6 @@ export default function App() {
             {sidebarFocus?.type === 'uncommitted' && workingStatus ? (
               <StagingPanel 
                 workingStatus={workingStatus}
-                currentBranch={currentBranch}
                 onRefresh={refresh}
                 onStatusChange={setStatus}
               />
@@ -2051,55 +2050,14 @@ function SidebarDetailPanel({ focus, formatRelativeTime, formatDate, currentBran
     
     case 'worktree': {
       const wt = focus.data as Worktree;
-      const isCurrent = wt.branch === currentBranch;
       return (
-        <div className="sidebar-detail-panel">
-          <div className="detail-type-badge">Worktree</div>
-          <h3 className="detail-title">{wt.displayName}</h3>
-          <div className="detail-meta-grid">
-            <div className="detail-meta-item full-width">
-              <span className="meta-label">Path</span>
-              <code className="meta-value path">{wt.path}</code>
-            </div>
-            {wt.branch && (
-              <div className="detail-meta-item">
-                <span className="meta-label">Branch</span>
-                <code className="meta-value">{wt.branch}</code>
-              </div>
-            )}
-            <div className="detail-meta-item">
-              <span className="meta-label">Status</span>
-              <span className="meta-value">
-                {isCurrent ? 'Current' : 'Not checked out'}
-              </span>
-            </div>
-            <div className="detail-meta-item">
-              <span className="meta-label">Changes</span>
-              <span className="meta-value">
-                {wt.changedFileCount > 0 ? (
-                  <>
-                    {wt.changedFileCount} {wt.changedFileCount === 1 ? 'file' : 'files'}
-                    {(wt.additions > 0 || wt.deletions > 0) && (
-                      <>
-                        {' · '}
-                        <span className="diff-additions">+{wt.additions}</span>
-                        {' '}
-                        <span className="diff-deletions">-{wt.deletions}</span>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  'Clean'
-                )}
-              </span>
-            </div>
-          </div>
-          {!isCurrent && wt.branch && (
-            <div className="detail-actions-hint">
-              Double-click to checkout this worktree
-            </div>
-          )}
-        </div>
+        <WorktreeDetailPanel
+          worktree={wt}
+          currentBranch={currentBranch}
+          onStatusChange={onStatusChange}
+          onRefresh={onRefresh}
+          onClearFocus={onClearFocus}
+        />
       );
     }
     
@@ -2132,19 +2090,17 @@ function SidebarDetailPanel({ focus, formatRelativeTime, formatDate, currentBran
 
 interface StagingPanelProps {
   workingStatus: WorkingStatus;
-  currentBranch: string;
   onRefresh: () => Promise<void>;
   onStatusChange: (status: StatusMessage | null) => void;
 }
 
-function StagingPanel({ workingStatus, currentBranch, onRefresh, onStatusChange }: StagingPanelProps) {
+function StagingPanel({ workingStatus, onRefresh, onStatusChange }: StagingPanelProps) {
   const [selectedFile, setSelectedFile] = useState<UncommittedFile | null>(null);
   const [fileDiff, setFileDiff] = useState<StagingFileDiff | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [commitMessage, setCommitMessage] = useState('');
   const [commitDescription, setCommitDescription] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
-  const [pushAfterCommit, setPushAfterCommit] = useState(true);
 
   const stagedFiles = workingStatus.files.filter(f => f.staged);
   const unstagedFiles = workingStatus.files.filter(f => !f.staged);
@@ -2215,36 +2171,23 @@ function StagingPanel({ workingStatus, currentBranch, onRefresh, onStatusChange 
     }
   };
 
-  // Commit changes (and optionally push)
+  // Commit changes
   const handleCommit = async () => {
     if (!commitMessage.trim() || stagedFiles.length === 0) return;
 
     setIsCommitting(true);
     try {
-      const commitResult = await window.electronAPI.commitChanges(
+      const result = await window.electronAPI.commitChanges(
         commitMessage.trim(),
         commitDescription.trim() || undefined
       );
-      
-      if (commitResult.success) {
-        // If push after commit is enabled, push the branch
-        if (pushAfterCommit && currentBranch) {
-          onStatusChange({ type: 'info', message: 'Pushing to remote...' });
-          const pushResult = await window.electronAPI.pushBranch(currentBranch, true);
-          if (pushResult.success) {
-            onStatusChange({ type: 'success', message: `Committed and pushed to ${currentBranch}` });
-          } else {
-            // Commit succeeded but push failed
-            onStatusChange({ type: 'error', message: `Committed, but push failed: ${pushResult.message}` });
-          }
-        } else {
-          onStatusChange({ type: 'success', message: commitResult.message });
-        }
+      if (result.success) {
+        onStatusChange({ type: 'success', message: result.message });
         setCommitMessage('');
         setCommitDescription('');
         await onRefresh();
       } else {
-        onStatusChange({ type: 'error', message: commitResult.message });
+        onStatusChange({ type: 'error', message: result.message });
       }
     } catch (error) {
       onStatusChange({ type: 'error', message: (error as Error).message });
@@ -2287,12 +2230,6 @@ function StagingPanel({ workingStatus, currentBranch, onRefresh, onStatusChange 
             <span className="diff-deletions">-{workingStatus.deletions}</span>
           </span>
         </div>
-        {currentBranch && (
-          <div className="staging-branch-indicator">
-            <span className="staging-branch-label">Committing to</span>
-            <code className="staging-branch-name">{currentBranch}</code>
-          </div>
-        )}
       </div>
 
       {/* File Lists */}
@@ -2439,28 +2376,12 @@ function StagingPanel({ workingStatus, currentBranch, onRefresh, onStatusChange 
           onChange={(e) => setCommitDescription(e.target.value)}
           rows={3}
         />
-        <div className="commit-options">
-          <label className="commit-option-checkbox">
-            <input
-              type="checkbox"
-              checked={pushAfterCommit}
-              onChange={(e) => setPushAfterCommit(e.target.checked)}
-            />
-            <span>Push to <code>{currentBranch || 'remote'}</code> after commit</span>
-          </label>
-        </div>
         <button
           className="btn btn-primary commit-btn"
           onClick={handleCommit}
           disabled={!commitMessage.trim() || stagedFiles.length === 0 || isCommitting}
         >
-          {isCommitting 
-            ? (pushAfterCommit ? 'Committing & Pushing...' : 'Committing...') 
-            : (pushAfterCommit 
-                ? `Commit & Push ${stagedFiles.length} file${stagedFiles.length !== 1 ? 's' : ''}` 
-                : `Commit ${stagedFiles.length} file${stagedFiles.length !== 1 ? 's' : ''}`
-              )
-          }
+          {isCommitting ? 'Committing...' : `Commit ${stagedFiles.length} file${stagedFiles.length !== 1 ? 's' : ''}`}
         </button>
       </div>
     </div>
@@ -2817,6 +2738,197 @@ function PRReviewPanel({ pr, formatRelativeTime }: PRReviewPanelProps) {
           Open on GitHub
         </button>
       </div>
+    </div>
+  );
+}
+
+// ========================================
+// Worktree Detail Panel Component
+// ========================================
+
+interface WorktreeDetailPanelProps {
+  worktree: Worktree;
+  currentBranch: string;
+  onStatusChange?: (status: StatusMessage | null) => void;
+  onRefresh?: () => Promise<void>;
+  onClearFocus?: () => void;
+}
+
+function WorktreeDetailPanel({ worktree, currentBranch, onStatusChange, onRefresh, onClearFocus }: WorktreeDetailPanelProps) {
+  const [actionInProgress, setActionInProgress] = useState(false);
+  
+  const isCurrent = worktree.branch === currentBranch;
+  const hasChanges = worktree.changedFileCount > 0 || worktree.additions > 0 || worktree.deletions > 0;
+
+  const handleApply = async () => {
+    if (!hasChanges) {
+      onStatusChange?.({ type: 'info', message: 'No changes to apply - worktree is clean' });
+      return;
+    }
+    
+    setActionInProgress(true);
+    onStatusChange?.({ type: 'info', message: `Applying changes from ${worktree.displayName}...` });
+    
+    try {
+      const result = await window.electronAPI.applyWorktreeChanges(worktree.path);
+      if (result.success) {
+        onStatusChange?.({ type: 'success', message: result.message });
+        await onRefresh?.();
+      } else {
+        onStatusChange?.({ type: 'error', message: result.message });
+      }
+    } catch (error) {
+      onStatusChange?.({ type: 'error', message: (error as Error).message });
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  const handleCreateBranch = async () => {
+    if (!hasChanges) {
+      onStatusChange?.({ type: 'info', message: 'No changes to convert - worktree is clean' });
+      return;
+    }
+    
+    setActionInProgress(true);
+    onStatusChange?.({ type: 'info', message: `Creating branch from ${worktree.displayName}...` });
+    
+    try {
+      const result = await window.electronAPI.convertWorktreeToBranch(worktree.path);
+      if (result.success) {
+        onStatusChange?.({ type: 'success', message: result.message });
+        await onRefresh?.();
+      } else {
+        onStatusChange?.({ type: 'error', message: result.message });
+      }
+    } catch (error) {
+      onStatusChange?.({ type: 'error', message: (error as Error).message });
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  const handleOpenInFinder = async () => {
+    await window.electronAPI.openWorktree(worktree.path);
+  };
+
+  const handleRemove = async (force: boolean = false) => {
+    const confirmMsg = force 
+      ? `Force remove worktree "${worktree.displayName}"? This will discard any uncommitted changes.`
+      : `Remove worktree "${worktree.displayName}"?`;
+    if (!confirm(confirmMsg)) return;
+    
+    setActionInProgress(true);
+    onStatusChange?.({ type: 'info', message: `Removing worktree...` });
+    
+    try {
+      const result = await window.electronAPI.removeWorktree(worktree.path, force);
+      if (result.success) {
+        onStatusChange?.({ type: 'success', message: result.message });
+        onClearFocus?.();
+        await onRefresh?.();
+      } else {
+        // If it failed due to uncommitted changes, offer to force
+        if (result.message.includes('uncommitted changes') && !force) {
+          setActionInProgress(false);
+          if (confirm(`${result.message}\n\nDo you want to force remove and discard changes?`)) {
+            await handleRemove(true);
+          }
+        } else {
+          onStatusChange?.({ type: 'error', message: result.message });
+        }
+      }
+    } catch (error) {
+      onStatusChange?.({ type: 'error', message: (error as Error).message });
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  return (
+    <div className="sidebar-detail-panel">
+      <div className="detail-type-badge">Worktree</div>
+      <h3 className="detail-title">{worktree.displayName}</h3>
+      <div className="detail-meta-grid">
+        <div className="detail-meta-item full-width">
+          <span className="meta-label">Path</span>
+          <code className="meta-value path">{worktree.path}</code>
+        </div>
+        {worktree.branch && (
+          <div className="detail-meta-item">
+            <span className="meta-label">Branch</span>
+            <code className="meta-value">{worktree.branch}</code>
+          </div>
+        )}
+        <div className="detail-meta-item">
+          <span className="meta-label">Status</span>
+          <span className="meta-value">
+            {isCurrent ? 'Current' : 'Not checked out'}
+          </span>
+        </div>
+        <div className="detail-meta-item">
+          <span className="meta-label">Changes</span>
+          <span className="meta-value">
+            {hasChanges ? (
+              <>
+                {worktree.changedFileCount} {worktree.changedFileCount === 1 ? 'file' : 'files'}
+                {(worktree.additions > 0 || worktree.deletions > 0) && (
+                  <>
+                    {' · '}
+                    <span className="diff-additions">+{worktree.additions}</span>
+                    {' '}
+                    <span className="diff-deletions">-{worktree.deletions}</span>
+                  </>
+                )}
+              </>
+            ) : (
+              'Clean'
+            )}
+          </span>
+        </div>
+      </div>
+      
+      {/* Actions - matching stash panel layout */}
+      <div className="detail-actions worktree-actions">
+        <button 
+          className="btn btn-primary"
+          onClick={handleApply}
+          disabled={actionInProgress || !hasChanges}
+          title={hasChanges ? 'Apply changes to main repo' : 'No changes to apply'}
+        >
+          Apply
+        </button>
+        <button 
+          className="btn btn-secondary"
+          onClick={handleCreateBranch}
+          disabled={actionInProgress || !hasChanges}
+          title={hasChanges ? 'Create a new branch with these changes' : 'No changes to convert'}
+        >
+          Create Branch
+        </button>
+        <button 
+          className="btn btn-secondary"
+          onClick={handleOpenInFinder}
+          disabled={actionInProgress}
+        >
+          Open in Finder
+        </button>
+        {!isCurrent && (
+          <button 
+            className="btn btn-secondary"
+            onClick={() => handleRemove(false)}
+            disabled={actionInProgress}
+          >
+            Remove
+          </button>
+        )}
+      </div>
+      
+      {!isCurrent && worktree.branch && (
+        <div className="detail-actions-hint">
+          Double-click to checkout this worktree
+        </div>
+      )}
     </div>
   );
 }

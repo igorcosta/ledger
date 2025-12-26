@@ -33,6 +33,8 @@ import {
   dropStash,
   stashToBranch,
   convertWorktreeToBranch,
+  applyWorktreeChanges,
+  removeWorktree,
   // Staging & commit APIs
   stageFile,
   unstageFile,
@@ -246,6 +248,22 @@ app.whenReady().then(() => {
       return await convertWorktreeToBranch(worktreePath);
     } catch (error) {
       return null;
+    }
+  });
+
+  ipcMain.handle('apply-worktree-changes', async (_, worktreePath: string) => {
+    try {
+      return await applyWorktreeChanges(worktreePath);
+    } catch (error) {
+      return { success: false, message: (error as Error).message };
+    }
+  });
+
+  ipcMain.handle('remove-worktree', async (_, worktreePath: string, force: boolean) => {
+    try {
+      return await removeWorktree(worktreePath, force);
+    } catch (error) {
+      return { success: false, message: (error as Error).message };
     }
   });
 

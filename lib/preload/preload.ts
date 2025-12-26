@@ -46,6 +46,8 @@ const electronAPI = {
   stashToBranch: (stashIndex: number, branchName: string) => ipcRenderer.invoke('stash-to-branch', stashIndex, branchName),
   // Worktree operations
   convertWorktreeToBranch: (worktreePath: string) => ipcRenderer.invoke('convert-worktree-to-branch', worktreePath),
+  applyWorktreeChanges: (worktreePath: string) => ipcRenderer.invoke('apply-worktree-changes', worktreePath),
+  removeWorktree: (worktreePath: string, force?: boolean) => ipcRenderer.invoke('remove-worktree', worktreePath, force ?? false),
   // Staging & commit operations
   stageFile: (filePath: string) => ipcRenderer.invoke('stage-file', filePath),
   unstageFile: (filePath: string) => ipcRenderer.invoke('unstage-file', filePath),

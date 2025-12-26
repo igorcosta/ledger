@@ -315,6 +315,8 @@ export interface ElectronAPI {
   stashToBranch: (stashIndex: number, branchName: string) => Promise<{ success: boolean; message: string }>;
   // Worktree operations
   convertWorktreeToBranch: (worktreePath: string) => Promise<{ success: boolean; message: string; branchName?: string }>;
+  applyWorktreeChanges: (worktreePath: string) => Promise<{ success: boolean; message: string }>;
+  removeWorktree: (worktreePath: string, force?: boolean) => Promise<{ success: boolean; message: string }>;
   // Staging & commit operations
   stageFile: (filePath: string) => Promise<{ success: boolean; message: string }>;
   unstageFile: (filePath: string) => Promise<{ success: boolean; message: string }>;

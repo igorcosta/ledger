@@ -1432,6 +1432,125 @@ export async function convertWorktreeToBranch(worktreePath: string): Promise<{ s
   }
 }
 
+// Apply changes from a worktree to the main repo
+export async function applyWorktreeChanges(worktreePath: string): Promise<{ success: boolean; message: string }> {
+  if (!git || !repoPath) throw new Error('No repository selected');
+
+  try {
+    // Check if this is the current worktree (main repo)
+    if (worktreePath === repoPath) {
+      return { success: false, message: 'Cannot apply from the main repository to itself' };
+    }
+
+    // Get the diff from the worktree as a patch
+    const { stdout: patchOutput } = await execAsync('git diff HEAD', { cwd: worktreePath });
+    
+    // Also get list of untracked files
+    const { stdout: untrackedOutput } = await execAsync('git ls-files --others --exclude-standard', { cwd: worktreePath });
+    const untrackedFiles = untrackedOutput.split('\n').filter(Boolean);
+
+    // Check if there are any changes
+    if (!patchOutput.trim() && untrackedFiles.length === 0) {
+      return { success: false, message: 'No changes to apply - worktree is clean' };
+    }
+
+    // Apply the patch if there are tracked file changes
+    if (patchOutput.trim()) {
+      // Write patch to a temp file
+      const tempPatchFile = path.join(repoPath, '.ledger-temp-patch');
+      try {
+        await fs.promises.writeFile(tempPatchFile, patchOutput);
+        await execAsync(`git apply --3way "${tempPatchFile}"`, { cwd: repoPath });
+        await fs.promises.unlink(tempPatchFile);
+      } catch (applyError) {
+        // If apply fails, try with less strict options
+        try {
+          await execAsync(`git apply --reject --whitespace=fix "${tempPatchFile}"`, { cwd: repoPath });
+          await fs.promises.unlink(tempPatchFile);
+        } catch {
+          try {
+            await fs.promises.unlink(tempPatchFile);
+          } catch { /* ignore */ }
+          return { success: false, message: 'Failed to apply changes - patch may have conflicts' };
+        }
+      }
+    }
+
+    // Copy untracked files
+    for (const file of untrackedFiles) {
+      const srcPath = path.join(worktreePath, file);
+      const destPath = path.join(repoPath, file);
+      
+      // Ensure destination directory exists
+      const destDir = path.dirname(destPath);
+      await fs.promises.mkdir(destDir, { recursive: true });
+      
+      // Copy the file
+      await fs.promises.copyFile(srcPath, destPath);
+    }
+
+    const folderName = path.basename(worktreePath);
+    return {
+      success: true,
+      message: `Applied changes from worktree: ${folderName}`,
+    };
+  } catch (error) {
+    return { success: false, message: (error as Error).message };
+  }
+}
+
+// Remove a worktree
+export async function removeWorktree(worktreePath: string, force: boolean = false): Promise<{ success: boolean; message: string }> {
+  if (!git) throw new Error('No repository selected');
+
+  try {
+    // Check if this is the current worktree (main repo)
+    if (worktreePath === repoPath) {
+      return { success: false, message: 'Cannot remove the main repository worktree' };
+    }
+
+    // Get worktree info to check for uncommitted changes
+    const worktrees = await getWorktrees();
+    const worktree = worktrees.find(wt => wt.path === worktreePath);
+    
+    if (!worktree) {
+      return { success: false, message: 'Worktree not found' };
+    }
+
+    // Check for uncommitted changes if not forcing
+    if (!force) {
+      try {
+        const { stdout: statusOutput } = await execAsync('git status --porcelain', { cwd: worktreePath });
+        if (statusOutput.trim()) {
+          return { success: false, message: 'Worktree has uncommitted changes. Use force to remove anyway.' };
+        }
+      } catch {
+        // If we can't check status, proceed with caution
+      }
+    }
+
+    // Remove the worktree
+    const args = ['worktree', 'remove'];
+    if (force) {
+      args.push('--force');
+    }
+    args.push(worktreePath);
+
+    await git.raw(args);
+
+    return {
+      success: true,
+      message: `Removed worktree: ${path.basename(worktreePath)}`,
+    };
+  } catch (error) {
+    const errorMsg = (error as Error).message;
+    if (errorMsg.includes('contains modified or untracked files')) {
+      return { success: false, message: 'Worktree has uncommitted changes. Use force to remove anyway.' };
+    }
+    return { success: false, message: errorMsg };
+  }
+}
+
 // Checkout a PR branch (by branch name)
 export async function checkoutPRBranch(branchName: string): Promise<{ success: boolean; message: string; stashed?: string }> {
   if (!git) throw new Error('No repository selected');
