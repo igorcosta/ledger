@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import type { Branch, Worktree, BranchFilter, BranchSort, CheckoutResult, PullRequest, Commit, WorkingStatus, UncommittedFile, PRFilter, PRSort, GraphCommit, CommitDiff, StashEntry, StagingFileDiff, PRDetail, PRReviewComment } from './types/electron'
+import type { Branch, Worktree, BranchFilter, BranchSort, CheckoutResult, PullRequest, Commit, WorkingStatus, UncommittedFile, PRFilter, PRSort, GraphCommit, CommitDiff, StashEntry, StagingFileDiff, PRDetail, PRReviewComment, StashFile } from './types/electron'
 import './styles/app.css'
 import { useWindowContext } from './components/window'
 
@@ -2065,24 +2065,10 @@ function SidebarDetailPanel({ focus, formatRelativeTime, formatDate, currentBran
     case 'stash': {
       const stash = focus.data as StashEntry;
       return (
-        <div className="sidebar-detail-panel">
-          <div className="detail-type-badge">Stash</div>
-          <h3 className="detail-title">stash@{`{${stash.index}}`}</h3>
-          <div className="detail-meta-grid">
-            <div className="detail-meta-item full-width">
-              <span className="meta-label">Message</span>
-              <span className="meta-value">{stash.message}</span>
-            </div>
-            <div className="detail-meta-item">
-              <span className="meta-label">Branch</span>
-              <code className="meta-value">{stash.branch || '—'}</code>
-            </div>
-            <div className="detail-meta-item">
-              <span className="meta-label">Date</span>
-              <span className="meta-value">{formatRelativeTime(stash.date)}</span>
-            </div>
-          </div>
-        </div>
+        <StashDetailPanel 
+          stash={stash} 
+          formatRelativeTime={formatRelativeTime} 
+        />
       );
     }
     
@@ -2750,6 +2736,150 @@ function PRReviewPanel({ pr, formatRelativeTime }: PRReviewPanelProps) {
           Open on GitHub
         </button>
       </div>
+    </div>
+  );
+}
+
+// ========================================
+// Stash Detail Panel Component
+// ========================================
+
+interface StashDetailPanelProps {
+  stash: StashEntry;
+  formatRelativeTime: (date: string) => string;
+}
+
+function StashDetailPanel({ stash, formatRelativeTime }: StashDetailPanelProps) {
+  const [files, setFiles] = useState<StashFile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [fileDiff, setFileDiff] = useState<string | null>(null);
+  const [loadingDiff, setLoadingDiff] = useState(false);
+
+  // Load stash files
+  useEffect(() => {
+    const loadFiles = async () => {
+      setLoading(true);
+      try {
+        const stashFiles = await window.electronAPI.getStashFiles(stash.index);
+        setFiles(stashFiles);
+      } catch (error) {
+        console.error('Error loading stash files:', error);
+        setFiles([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFiles();
+    setSelectedFile(null);
+    setFileDiff(null);
+  }, [stash.index]);
+
+  // Load file diff when selected
+  useEffect(() => {
+    if (!selectedFile) {
+      setFileDiff(null);
+      return;
+    }
+
+    const loadDiff = async () => {
+      setLoadingDiff(true);
+      try {
+        const diff = await window.electronAPI.getStashFileDiff(stash.index, selectedFile);
+        setFileDiff(diff);
+      } catch (error) {
+        setFileDiff(null);
+      } finally {
+        setLoadingDiff(false);
+      }
+    };
+
+    loadDiff();
+  }, [stash.index, selectedFile]);
+
+  const getStatusIcon = (status: StashFile['status']) => {
+    switch (status) {
+      case 'added': return 'A';
+      case 'modified': return 'M';
+      case 'deleted': return 'D';
+      case 'renamed': return 'R';
+      default: return '?';
+    }
+  };
+
+  const getStatusClass = (status: StashFile['status']) => {
+    switch (status) {
+      case 'added': return 'status-added';
+      case 'modified': return 'status-modified';
+      case 'deleted': return 'status-deleted';
+      case 'renamed': return 'status-renamed';
+      default: return '';
+    }
+  };
+
+  return (
+    <div className="stash-detail-panel">
+      {/* Header */}
+      <div className="stash-header">
+        <div className="detail-type-badge">Stash</div>
+        <h3 className="stash-title">stash@{`{${stash.index}}`}</h3>
+        <p className="stash-message">{stash.message}</p>
+        <div className="stash-meta">
+          {stash.branch && <code className="stash-branch">{stash.branch}</code>}
+          <span className="stash-date">{formatRelativeTime(stash.date)}</span>
+        </div>
+      </div>
+
+      {/* Files List */}
+      <div className="stash-files">
+        <div className="stash-files-header">
+          Changed Files
+          <span className="stash-files-count">{files.length}</span>
+        </div>
+        {loading ? (
+          <div className="stash-loading">Loading files...</div>
+        ) : files.length === 0 ? (
+          <div className="stash-empty">No files in stash</div>
+        ) : (
+          <ul className="stash-files-list">
+            {files.map((file) => (
+              <li 
+                key={file.path}
+                className={`stash-file-item ${getStatusClass(file.status)} ${selectedFile === file.path ? 'selected' : ''}`}
+                onClick={() => setSelectedFile(file.path)}
+              >
+                <span className={`stash-file-status ${getStatusClass(file.status)}`}>
+                  {getStatusIcon(file.status)}
+                </span>
+                <span className="stash-file-path" title={file.path}>{file.path}</span>
+                <span className="stash-file-stats">
+                  <span className="diff-additions">+{file.additions}</span>
+                  <span className="diff-deletions">-{file.deletions}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Diff Preview */}
+      {selectedFile && (
+        <div className="stash-diff">
+          <div className="stash-diff-header">
+            <span className="stash-diff-title">{selectedFile}</span>
+          </div>
+          <div className="stash-diff-content">
+            {loadingDiff ? (
+              <div className="stash-diff-loading">Loading diff...</div>
+            ) : fileDiff ? (
+              <pre className="stash-diff-code">{fileDiff}</pre>
+            ) : (
+              <div className="stash-diff-empty">Could not load diff</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

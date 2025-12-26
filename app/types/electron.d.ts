@@ -147,6 +147,13 @@ export interface StashEntry {
   date: string;
 }
 
+export interface StashFile {
+  path: string;
+  status: 'added' | 'modified' | 'deleted' | 'renamed';
+  additions: number;
+  deletions: number;
+}
+
 // Staging file diff types (for working directory changes)
 export interface StagingDiffHunk {
   header: string;
@@ -299,6 +306,9 @@ export interface ElectronAPI {
   getCommitGraphHistory: (limit?: number) => Promise<GraphCommit[]>;
   getCommitDiff: (commitHash: string) => Promise<CommitDiff | null>;
   getStashes: () => Promise<StashEntry[]>;
+  getStashFiles: (stashIndex: number) => Promise<StashFile[]>;
+  getStashFileDiff: (stashIndex: number, filePath: string) => Promise<string | null>;
+  getStashDiff: (stashIndex: number) => Promise<string | null>;
   // Worktree operations
   convertWorktreeToBranch: (worktreePath: string) => Promise<{ success: boolean; message: string; branchName?: string }>;
   // Staging & commit operations

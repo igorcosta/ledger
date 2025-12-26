@@ -37,6 +37,9 @@ const electronAPI = {
   getCommitGraphHistory: (limit?: number) => ipcRenderer.invoke('get-commit-graph-history', limit),
   getCommitDiff: (commitHash: string) => ipcRenderer.invoke('get-commit-diff', commitHash),
   getStashes: () => ipcRenderer.invoke('get-stashes'),
+  getStashFiles: (stashIndex: number) => ipcRenderer.invoke('get-stash-files', stashIndex),
+  getStashFileDiff: (stashIndex: number, filePath: string) => ipcRenderer.invoke('get-stash-file-diff', stashIndex, filePath),
+  getStashDiff: (stashIndex: number) => ipcRenderer.invoke('get-stash-diff', stashIndex),
   // Worktree operations
   convertWorktreeToBranch: (worktreePath: string) => ipcRenderer.invoke('convert-worktree-to-branch', worktreePath),
   // Staging & commit operations

@@ -25,6 +25,9 @@ import {
   getCommitGraphHistory,
   getCommitDiff,
   getStashes,
+  getStashFiles,
+  getStashFileDiff,
+  getStashDiff,
   convertWorktreeToBranch,
   // Staging & commit APIs
   stageFile,
@@ -247,6 +250,30 @@ app.whenReady().then(() => {
       return await getStashes();
     } catch (error) {
       return [];
+    }
+  });
+
+  ipcMain.handle('get-stash-files', async (_, stashIndex: number) => {
+    try {
+      return await getStashFiles(stashIndex);
+    } catch (error) {
+      return [];
+    }
+  });
+
+  ipcMain.handle('get-stash-file-diff', async (_, stashIndex: number, filePath: string) => {
+    try {
+      return await getStashFileDiff(stashIndex, filePath);
+    } catch (error) {
+      return null;
+    }
+  });
+
+  ipcMain.handle('get-stash-diff', async (_, stashIndex: number) => {
+    try {
+      return await getStashDiff(stashIndex);
+    } catch (error) {
+      return null;
     }
   });
 

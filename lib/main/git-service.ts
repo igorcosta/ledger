@@ -1760,6 +1760,101 @@ export async function getStashes(): Promise<StashEntry[]> {
   }
 }
 
+// Get files changed in a stash
+export interface StashFile {
+  path: string;
+  status: 'added' | 'modified' | 'deleted' | 'renamed';
+  additions: number;
+  deletions: number;
+}
+
+export async function getStashFiles(stashIndex: number): Promise<StashFile[]> {
+  if (!git) throw new Error('No repository selected');
+
+  try {
+    // Get list of files with stats
+    const output = await git.raw(['stash', 'show', `stash@{${stashIndex}}`, '--numstat', '--name-status']);
+    
+    if (!output.trim()) {
+      return [];
+    }
+
+    const lines = output.trim().split('\n');
+    const files: StashFile[] = [];
+    
+    // Parse numstat output (additions deletions filename)
+    // and name-status output (status filename)
+    const numstatLines: Map<string, { additions: number; deletions: number }> = new Map();
+    const statusLines: Map<string, string> = new Map();
+    
+    for (const line of lines) {
+      const numstatMatch = line.match(/^(\d+|-)\t(\d+|-)\t(.+)$/);
+      if (numstatMatch) {
+        const [, adds, dels, path] = numstatMatch;
+        numstatLines.set(path, {
+          additions: adds === '-' ? 0 : parseInt(adds),
+          deletions: dels === '-' ? 0 : parseInt(dels),
+        });
+        continue;
+      }
+      
+      const statusMatch = line.match(/^([AMDRC])\t(.+)$/);
+      if (statusMatch) {
+        const [, status, path] = statusMatch;
+        statusLines.set(path, status);
+      }
+    }
+
+    // Combine the information
+    for (const [path, stats] of numstatLines) {
+      const statusCode = statusLines.get(path) || 'M';
+      let status: StashFile['status'] = 'modified';
+      
+      switch (statusCode) {
+        case 'A': status = 'added'; break;
+        case 'D': status = 'deleted'; break;
+        case 'R': status = 'renamed'; break;
+        default: status = 'modified';
+      }
+
+      files.push({
+        path,
+        status,
+        additions: stats.additions,
+        deletions: stats.deletions,
+      });
+    }
+
+    return files;
+  } catch {
+    return [];
+  }
+}
+
+// Get diff for a specific file in a stash
+export async function getStashFileDiff(stashIndex: number, filePath: string): Promise<string | null> {
+  if (!git) throw new Error('No repository selected');
+
+  try {
+    const output = await git.raw(['stash', 'show', '-p', `stash@{${stashIndex}}`, '--', filePath]);
+    return output || null;
+  } catch {
+    return null;
+  }
+}
+
+// Get full diff for a stash
+export async function getStashDiff(stashIndex: number): Promise<string | null> {
+  if (!git) throw new Error('No repository selected');
+
+  try {
+    const output = await git.raw(['stash', 'show', '-p', `stash@{${stashIndex}}`]);
+    return output || null;
+  } catch {
+    return null;
+  }
+}
+
 // ========================================
 // Staging & Commit Functions
 // ========================================
