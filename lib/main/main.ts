@@ -41,6 +41,7 @@ import {
   discardFileChanges,
   getFileDiff,
   commitChanges,
+  pullCurrentBranch,
   // PR Review APIs
   getPRDetail,
   getPRReviewComments,
@@ -365,6 +366,14 @@ app.whenReady().then(() => {
   ipcMain.handle('commit-changes', async (_, message: string, description?: string) => {
     try {
       return await commitChanges(message, description);
+    } catch (error) {
+      return { success: false, message: (error as Error).message };
+    }
+  });
+
+  ipcMain.handle('pull-current-branch', async () => {
+    try {
+      return await pullCurrentBranch();
     } catch (error) {
       return { success: false, message: (error as Error).message };
     }

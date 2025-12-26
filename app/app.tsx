@@ -98,6 +98,19 @@ export default function App() {
   // Worktree filter state
   const [worktreeParentFilter, setWorktreeParentFilter] = useState<string>('all')
 
+  // Focus view panel state (resizable + collapsible)
+  const [sidebarWidth, setSidebarWidth] = useState(220)
+  const [detailWidth, setDetailWidth] = useState(400)
+  const [sidebarVisible, setSidebarVisible] = useState(true)
+  const [detailVisible, setDetailVisible] = useState(true)
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false)
+  const [isResizingDetail, setIsResizingDetail] = useState(false)
+  
+  // Radar view column order (drag-and-drop)
+  const [radarColumnOrder, setRadarColumnOrder] = useState<string[]>(['prs', 'worktrees', 'commits', 'branches', 'remotes'])
+  const [draggingColumn, setDraggingColumn] = useState<string | null>(null)
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null)
+
   const menuRef = useRef<HTMLDivElement>(null)
 
   // Close context menu when clicking outside
@@ -130,6 +143,78 @@ export default function App() {
     }
     return undefined
   }, [status])
+
+  // Handle panel resizing
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isResizingSidebar) {
+        const newWidth = Math.max(150, Math.min(400, e.clientX))
+        setSidebarWidth(newWidth)
+      }
+      if (isResizingDetail) {
+        const newWidth = Math.max(250, Math.min(600, window.innerWidth - e.clientX))
+        setDetailWidth(newWidth)
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingSidebar(false)
+      setIsResizingDetail(false)
+    }
+
+    if (isResizingSidebar || isResizingDetail) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isResizingSidebar, isResizingDetail])
+
+  // Column drag and drop handlers for Radar view
+  const handleColumnDragStart = useCallback((e: React.DragEvent, columnId: string) => {
+    setDraggingColumn(columnId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', columnId)
+  }, [])
+
+  const handleColumnDragOver = useCallback((e: React.DragEvent, columnId: string) => {
+    e.preventDefault()
+    if (draggingColumn && draggingColumn !== columnId) {
+      setDragOverColumn(columnId)
+    }
+  }, [draggingColumn])
+
+  const handleColumnDragLeave = useCallback(() => {
+    setDragOverColumn(null)
+  }, [])
+
+  const handleColumnDrop = useCallback((e: React.DragEvent, targetColumnId: string) => {
+    e.preventDefault()
+    if (!draggingColumn || draggingColumn === targetColumnId) return
+
+    setRadarColumnOrder(prev => {
+      const newOrder = [...prev]
+      const dragIndex = newOrder.indexOf(draggingColumn)
+      const targetIndex = newOrder.indexOf(targetColumnId)
+      newOrder.splice(dragIndex, 1)
+      newOrder.splice(targetIndex, 0, draggingColumn)
+      return newOrder
+    })
+    setDraggingColumn(null)
+    setDragOverColumn(null)
+  }, [draggingColumn])
+
+  const handleColumnDragEnd = useCallback(() => {
+    setDraggingColumn(null)
+    setDragOverColumn(null)
+  }, [])
 
   const selectRepo = async () => {
     const path = await window.electronAPI.selectRepo()
@@ -951,7 +1036,17 @@ export default function App() {
       {repoPath && !error && viewMode === 'radar' && (
         <main className="ledger-content five-columns">
           {/* Pull Requests Column */}
-          <section className="column pr-column">
+          <section 
+            className={`column pr-column ${draggingColumn === 'prs' ? 'dragging' : ''} ${dragOverColumn === 'prs' ? 'drag-over' : ''}`}
+            style={{ order: radarColumnOrder.indexOf('prs') }}
+            draggable
+            onDragStart={(e) => handleColumnDragStart(e, 'prs')}
+            onDragOver={(e) => handleColumnDragOver(e, 'prs')}
+            onDragLeave={handleColumnDragLeave}
+            onDrop={(e) => handleColumnDrop(e, 'prs')}
+            onDragEnd={handleColumnDragEnd}
+          >
+            <div className="column-drag-handle" title="Drag to reorder">⋮⋮</div>
             <div 
               className={`column-header clickable-header ${prControlsOpen ? 'open' : ''}`}
               onClick={() => setPrControlsOpen(!prControlsOpen)}
@@ -1045,7 +1140,17 @@ export default function App() {
           </section>
 
           {/* Worktrees Column */}
-          <section className="column worktrees-column">
+          <section 
+            className={`column worktrees-column ${draggingColumn === 'worktrees' ? 'dragging' : ''} ${dragOverColumn === 'worktrees' ? 'drag-over' : ''}`}
+            style={{ order: radarColumnOrder.indexOf('worktrees') }}
+            draggable
+            onDragStart={(e) => handleColumnDragStart(e, 'worktrees')}
+            onDragOver={(e) => handleColumnDragOver(e, 'worktrees')}
+            onDragLeave={handleColumnDragLeave}
+            onDrop={(e) => handleColumnDrop(e, 'worktrees')}
+            onDragEnd={handleColumnDragEnd}
+          >
+            <div className="column-drag-handle" title="Drag to reorder">⋮⋮</div>
             <div 
               className={`column-header clickable-header ${worktreeControlsOpen ? 'open' : ''}`}
               onClick={() => setWorktreeControlsOpen(!worktreeControlsOpen)}
@@ -1119,7 +1224,17 @@ export default function App() {
           </section>
 
           {/* Commits Timeline Column */}
-          <section className="column commits-column">
+          <section 
+            className={`column commits-column ${draggingColumn === 'commits' ? 'dragging' : ''} ${dragOverColumn === 'commits' ? 'drag-over' : ''}`}
+            style={{ order: radarColumnOrder.indexOf('commits') }}
+            draggable
+            onDragStart={(e) => handleColumnDragStart(e, 'commits')}
+            onDragOver={(e) => handleColumnDragOver(e, 'commits')}
+            onDragLeave={handleColumnDragLeave}
+            onDrop={(e) => handleColumnDrop(e, 'commits')}
+            onDragEnd={handleColumnDragEnd}
+          >
+            <div className="column-drag-handle" title="Drag to reorder">⋮⋮</div>
             <div className="column-header">
               <h2>
                 <span className="column-icon">◉</span>
@@ -1188,7 +1303,17 @@ export default function App() {
           </section>
 
           {/* Local Branches Column */}
-          <section className="column branches-column">
+          <section 
+            className={`column branches-column ${draggingColumn === 'branches' ? 'dragging' : ''} ${dragOverColumn === 'branches' ? 'drag-over' : ''}`}
+            style={{ order: radarColumnOrder.indexOf('branches') }}
+            draggable
+            onDragStart={(e) => handleColumnDragStart(e, 'branches')}
+            onDragOver={(e) => handleColumnDragOver(e, 'branches')}
+            onDragLeave={handleColumnDragLeave}
+            onDrop={(e) => handleColumnDrop(e, 'branches')}
+            onDragEnd={handleColumnDragEnd}
+          >
+            <div className="column-drag-handle" title="Drag to reorder">⋮⋮</div>
             <div 
               className={`column-header clickable-header ${localControlsOpen ? 'open' : ''}`}
               onClick={() => setLocalControlsOpen(!localControlsOpen)}
@@ -1273,7 +1398,17 @@ export default function App() {
           </section>
 
           {/* Remote Branches Column */}
-          <section className="column remotes-column">
+          <section 
+            className={`column remotes-column ${draggingColumn === 'remotes' ? 'dragging' : ''} ${dragOverColumn === 'remotes' ? 'drag-over' : ''}`}
+            style={{ order: radarColumnOrder.indexOf('remotes') }}
+            draggable
+            onDragStart={(e) => handleColumnDragStart(e, 'remotes')}
+            onDragOver={(e) => handleColumnDragOver(e, 'remotes')}
+            onDragLeave={handleColumnDragLeave}
+            onDrop={(e) => handleColumnDrop(e, 'remotes')}
+            onDragEnd={handleColumnDragEnd}
+          >
+            <div className="column-drag-handle" title="Drag to reorder">⋮⋮</div>
             <div 
               className={`column-header clickable-header ${remoteControlsOpen ? 'open' : ''}`}
               onClick={() => setRemoteControlsOpen(!remoteControlsOpen)}
@@ -1356,8 +1491,20 @@ export default function App() {
       {/* Focus Mode Layout */}
       {repoPath && !error && viewMode === 'focus' && (
         <main className="work-mode-layout">
+          {/* Panel Toggle for Sidebar */}
+          {!sidebarVisible && (
+            <button 
+              className="panel-toggle panel-toggle-left"
+              onClick={() => setSidebarVisible(true)}
+              title="Show sidebar"
+            >
+              <span className="panel-toggle-icon">▸</span>
+            </button>
+          )}
+          
           {/* Sidebar */}
-          <aside className="work-sidebar">
+          {sidebarVisible && (
+          <aside className="work-sidebar" style={{ width: sidebarWidth, minWidth: sidebarWidth }}>
             {/* PRs Section */}
             <div className="sidebar-section">
               <div className="sidebar-section-header">
@@ -1675,7 +1822,24 @@ export default function App() {
                 </ul>
               )}
             </div>
+            {/* Sidebar toggle button */}
+            <button 
+              className="panel-collapse-btn"
+              onClick={() => setSidebarVisible(false)}
+              title="Hide sidebar"
+            >
+              <span className="panel-collapse-icon">◀</span>
+            </button>
           </aside>
+          )}
+          
+          {/* Sidebar Resize Handle */}
+          {sidebarVisible && (
+            <div 
+              className={`resize-handle resize-handle-sidebar ${isResizingSidebar ? 'active' : ''}`}
+              onMouseDown={() => setIsResizingSidebar(true)}
+            />
+          )}
 
           {/* Main Content: Git Graph + Commit List */}
           <div className="work-main">
@@ -1696,8 +1860,17 @@ export default function App() {
             </div>
           </div>
 
+          {/* Detail Panel Resize Handle */}
+          {detailVisible && (
+            <div 
+              className={`resize-handle resize-handle-detail ${isResizingDetail ? 'active' : ''}`}
+              onMouseDown={() => setIsResizingDetail(true)}
+            />
+          )}
+
           {/* Detail Panel */}
-          <aside className="work-detail">
+          {detailVisible && (
+          <aside className="work-detail" style={{ width: detailWidth, minWidth: detailWidth }}>
             {sidebarFocus?.type === 'uncommitted' && workingStatus ? (
               <StagingPanel 
                 workingStatus={workingStatus}
@@ -1732,7 +1905,27 @@ export default function App() {
             ) : (
               <div className="detail-error">Could not load diff</div>
             )}
+            {/* Detail panel collapse button */}
+            <button 
+              className="panel-collapse-btn panel-collapse-btn-right"
+              onClick={() => setDetailVisible(false)}
+              title="Hide detail panel"
+            >
+              <span className="panel-collapse-icon">▶</span>
+            </button>
           </aside>
+          )}
+          
+          {/* Panel Toggle for Detail */}
+          {!detailVisible && (
+            <button 
+              className="panel-toggle panel-toggle-right"
+              onClick={() => setDetailVisible(true)}
+              title="Show detail panel"
+            >
+              <span className="panel-toggle-icon">◂</span>
+            </button>
+          )}
         </main>
       )}
     </div>
@@ -2422,6 +2615,24 @@ function StagingPanel({ workingStatus, currentBranch, onRefresh, onStatusChange 
 
     setIsCommitting(true);
     try {
+      // If push after commit is enabled, pull first to avoid push rejection
+      if (pushAfterCommit && currentBranch) {
+        onStatusChange({ type: 'info', message: 'Pulling latest changes...' });
+        const pullResult = await window.electronAPI.pullCurrentBranch();
+        
+        if (!pullResult.success) {
+          // Pull failed - alert user to fix and restart
+          if (pullResult.hadConflicts) {
+            onStatusChange({ type: 'error', message: 'Pull failed with conflicts. Please resolve conflicts in terminal and try again.' });
+          } else {
+            onStatusChange({ type: 'error', message: `Pull failed: ${pullResult.message}. Please resolve manually and try again.` });
+          }
+          await onRefresh(); // Refresh to show any state changes
+          setIsCommitting(false);
+          return;
+        }
+      }
+
       const commitResult = await window.electronAPI.commitChanges(
         commitMessage.trim(),
         commitDescription.trim() || undefined
@@ -2770,6 +2981,32 @@ function PRReviewPanel({ pr, formatRelativeTime }: PRReviewPanelProps) {
   const getFileComments = (filePath: string) => {
     return reviewComments.filter(c => c.path === filePath);
   };
+
+  // Handle PR merge
+  const handleMerge = async (method: 'merge' | 'squash' | 'rebase') => {
+    setMerging(true);
+    setShowMergeOptions(false);
+    onStatusChange?.({ type: 'info', message: `Merging PR #${pr.number}...` });
+
+    try {
+      const result = await window.electronAPI.mergePullRequest(pr.number, { method });
+      if (result.success) {
+        onStatusChange?.({ type: 'success', message: result.message });
+        // Refresh the PR list and clear focus since PR is now merged
+        await onRefresh?.();
+        onClearFocus?.();
+      } else {
+        onStatusChange?.({ type: 'error', message: result.message });
+      }
+    } catch (error) {
+      onStatusChange?.({ type: 'error', message: (error as Error).message });
+    } finally {
+      setMerging(false);
+    }
+  };
+
+  // Check if PR can be merged
+  const canMerge = prDetail?.state === 'OPEN';
 
   // Get review state badge
   const getReviewStateBadge = (state: string) => {
