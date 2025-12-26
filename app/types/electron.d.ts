@@ -122,6 +122,8 @@ export interface ElectronAPI {
   // Commit history and working status
   getCommitHistory: (limit?: number) => Promise<Commit[]>;
   getWorkingStatus: () => Promise<WorkingStatus>;
+  // Reset operations
+  resetToCommit: (commitHash: string, mode: 'soft' | 'mixed' | 'hard') => Promise<CheckoutResult>;
 }
 
 declare global {

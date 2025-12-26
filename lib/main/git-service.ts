@@ -791,6 +791,31 @@ export async function getWorkingStatus(): Promise<WorkingStatus> {
   };
 }
 
+// Reset to a specific commit
+export async function resetToCommit(commitHash: string, mode: 'soft' | 'mixed' | 'hard' = 'hard'): Promise<{ success: boolean; message: string; stashed?: string }> {
+  if (!git) throw new Error('No repository selected');
+  
+  try {
+    // Stash any uncommitted changes first (only for hard reset)
+    let stashResult = { stashed: false, message: '' };
+    if (mode === 'hard') {
+      stashResult = await stashChanges();
+    }
+    
+    // Perform the reset
+    await git.reset([`--${mode}`, commitHash]);
+    
+    const shortHash = commitHash.slice(0, 7);
+    return {
+      success: true,
+      message: `Reset to ${shortHash} (${mode})`,
+      stashed: stashResult.stashed ? stashResult.message : undefined,
+    };
+  } catch (error) {
+    return { success: false, message: (error as Error).message };
+  }
+}
+
 // Checkout a PR branch (by branch name)
 export async function checkoutPRBranch(branchName: string): Promise<{ success: boolean; message: string; stashed?: string }> {
   if (!git) throw new Error('No repository selected');

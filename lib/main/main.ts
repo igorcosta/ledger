@@ -17,6 +17,7 @@ import {
   checkoutPRBranch,
   getCommitHistory,
   getWorkingStatus,
+  resetToCommit,
 } from './git-service'
 import { getLastRepoPath, saveLastRepoPath } from './settings-service'
 
@@ -155,6 +156,14 @@ app.whenReady().then(() => {
       return await getWorkingStatus();
     } catch (error) {
       return { hasChanges: false, files: [], stagedCount: 0, unstagedCount: 0 };
+    }
+  });
+
+  ipcMain.handle('reset-to-commit', async (_, commitHash: string, mode: 'soft' | 'mixed' | 'hard') => {
+    try {
+      return await resetToCommit(commitHash, mode);
+    } catch (error) {
+      return { success: false, message: (error as Error).message };
     }
   });
 

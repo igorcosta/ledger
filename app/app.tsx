@@ -9,13 +9,13 @@ interface StatusMessage {
   stashed?: string;
 }
 
-type ContextMenuType = 'pr' | 'worktree' | 'local-branch' | 'remote-branch';
+type ContextMenuType = 'pr' | 'worktree' | 'local-branch' | 'remote-branch' | 'commit';
 
 interface ContextMenu {
   type: ContextMenuType;
   x: number;
   y: number;
-  data: PullRequest | Worktree | Branch;
+  data: PullRequest | Worktree | Branch | Commit;
 }
 
 interface MenuItem {
@@ -53,6 +53,10 @@ export default function App() {
   const [prControlsOpen, setPrControlsOpen] = useState(false)
   const [localControlsOpen, setLocalControlsOpen] = useState(false)
   const [remoteControlsOpen, setRemoteControlsOpen] = useState(false)
+  const [worktreeControlsOpen, setWorktreeControlsOpen] = useState(false)
+  
+  // Worktree filter state
+  const [worktreeParentFilter, setWorktreeParentFilter] = useState<string>('all')
 
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -150,7 +154,7 @@ export default function App() {
   }
 
   // Context menu handlers
-  const handleContextMenu = (e: React.MouseEvent, type: ContextMenuType, data: PullRequest | Worktree | Branch) => {
+  const handleContextMenu = (e: React.MouseEvent, type: ContextMenuType, data: PullRequest | Worktree | Branch | Commit) => {
     e.preventDefault()
     setContextMenu({ type, x: e.clientX, y: e.clientY, data })
   }
@@ -262,6 +266,29 @@ export default function App() {
     }
   }
 
+  // Commit context menu actions
+  const handleCommitReset = async (commit: Commit) => {
+    closeContextMenu()
+    if (switching) return
+    
+    setSwitching(true)
+    setStatus({ type: 'info', message: `Resetting to ${commit.shortHash}...` })
+    
+    try {
+      const result = await window.electronAPI.resetToCommit(commit.hash, 'hard')
+      if (result.success) {
+        setStatus({ type: 'success', message: result.message, stashed: result.stashed })
+        await refresh()
+      } else {
+        setStatus({ type: 'error', message: result.message })
+      }
+    } catch (err) {
+      setStatus({ type: 'error', message: (err as Error).message })
+    } finally {
+      setSwitching(false)
+    }
+  }
+
   // Get menu items based on context menu type
   const getMenuItems = (): MenuItem[] => {
     if (!contextMenu) return []
@@ -292,6 +319,13 @@ export default function App() {
         return [
           { label: 'Pull', action: () => handleRemoteBranchPull(branch) },
           { label: 'View Remote', action: () => handleRemoteBranchViewGitHub(branch) },
+        ]
+      }
+      case 'commit': {
+        const commit = contextMenu.data as Commit
+        return [
+          { label: 'Check Out', action: () => handleCommitDoubleClick(commit), disabled: switching },
+          { label: 'Reset to This Commit', action: () => handleCommitReset(commit), disabled: switching },
         ]
       }
       default:
@@ -430,6 +464,41 @@ export default function App() {
     const filtered = filterBranches(remote, remoteFilter)
     return sortBranches(filtered, remoteSort)
   }, [branches, remoteFilter, remoteSort])
+
+  // Extract unique parent folders from worktrees
+  const worktreeParents = useMemo(() => {
+    const parents = new Set<string>()
+    for (const wt of worktrees) {
+      // Extract parent folder from path (e.g., ~/.cursor/worktrees/xxx -> .cursor)
+      const pathParts = wt.path.split('/')
+      // Find known agent folders like .cursor, .claude, etc.
+      for (let i = 0; i < pathParts.length; i++) {
+        const part = pathParts[i]
+        if (part.startsWith('.') && ['cursor', 'claude', 'gemini', 'junie'].some(a => part.toLowerCase().includes(a))) {
+          parents.add(part)
+          break
+        }
+      }
+      // Also check for worktrees in the main repo path
+      if (repoPath && wt.path.startsWith(repoPath)) {
+        parents.add('main')
+      }
+    }
+    return Array.from(parents).sort()
+  }, [worktrees, repoPath])
+
+  // Filter worktrees by parent
+  const filteredWorktrees = useMemo(() => {
+    if (worktreeParentFilter === 'all') {
+      return worktrees
+    }
+    return worktrees.filter(wt => {
+      if (worktreeParentFilter === 'main') {
+        return repoPath && wt.path.startsWith(repoPath)
+      }
+      return wt.path.includes(`/${worktreeParentFilter}/`)
+    })
+  }, [worktrees, worktreeParentFilter, repoPath])
 
   // Filter and sort PRs
   const filteredPRs = useMemo(() => {
@@ -706,19 +775,44 @@ export default function App() {
 
           {/* Worktrees Column */}
           <section className="column worktrees-column">
-            <div className="column-header">
-              <h2>
-                <span className="column-icon">⧉</span>
-                Worktrees
-              </h2>
-              <span className="count-badge">{worktrees.length}</span>
+            <div 
+              className={`column-header clickable-header ${worktreeControlsOpen ? 'open' : ''}`}
+              onClick={() => setWorktreeControlsOpen(!worktreeControlsOpen)}
+            >
+              <div className="column-title">
+                <h2>
+                  <span className="column-icon">⧉</span>
+                  Worktrees
+                </h2>
+                <span className={`header-chevron ${worktreeControlsOpen ? 'open' : ''}`}>▾</span>
+              </div>
+              <span className="count-badge">{filteredWorktrees.length}</span>
             </div>
+            {worktreeControlsOpen && (
+              <div className="column-controls" onClick={(e) => e.stopPropagation()}>
+                <div className="control-group">
+                  <label>Parent</label>
+                  <select 
+                    value={worktreeParentFilter} 
+                    onChange={(e) => setWorktreeParentFilter(e.target.value)}
+                    className="control-select"
+                  >
+                    <option value="all">All</option>
+                    {worktreeParents.map(parent => (
+                      <option key={parent} value={parent}>{parent}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
             <div className="column-content">
-              {worktrees.length === 0 ? (
-                <div className="empty-column">No worktrees found</div>
+              {filteredWorktrees.length === 0 ? (
+                <div className="empty-column">
+                  {worktreeParentFilter !== 'all' ? 'No worktrees match filter' : 'No worktrees found'}
+                </div>
               ) : (
                 <ul className="item-list">
-                  {worktrees.map((wt) => (
+                  {filteredWorktrees.map((wt) => (
                     <li
                       key={wt.path}
                       className={`item worktree-item clickable ${wt.branch === currentBranch ? 'current' : ''}`}
@@ -793,6 +887,7 @@ export default function App() {
                     key={commit.hash} 
                     className={`commit-item ${commit.isMerge ? 'merge' : ''} ${switching ? 'disabled' : ''}`}
                     onDoubleClick={() => handleCommitDoubleClick(commit)}
+                    onContextMenu={(e) => handleContextMenu(e, 'commit', commit)}
                   >
                     <div className="commit-message" title={commit.message}>
                       {commit.message}

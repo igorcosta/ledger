@@ -25,6 +25,8 @@ const electronAPI = {
   // Commit history and working status
   getCommitHistory: (limit?: number) => ipcRenderer.invoke('get-commit-history', limit),
   getWorkingStatus: () => ipcRenderer.invoke('get-working-status'),
+  // Reset operations
+  resetToCommit: (commitHash: string, mode: 'soft' | 'mixed' | 'hard') => ipcRenderer.invoke('reset-to-commit', commitHash, mode),
 }
 
 // Use `contextBridge` APIs to expose APIs to
