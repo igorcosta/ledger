@@ -1839,20 +1839,48 @@ interface SidebarDetailPanelProps {
 function SidebarDetailPanel({ focus, formatRelativeTime, formatDate, currentBranch, onStatusChange }: SidebarDetailPanelProps) {
   const [creatingPR, setCreatingPR] = useState(false);
   const [pushing, setPushing] = useState(false);
+  const [showPRModal, setShowPRModal] = useState(false);
+  const [prTitle, setPrTitle] = useState('');
+  const [prBody, setPrBody] = useState('');
+  const [prDraft, setPrDraft] = useState(false);
+  const [prBaseBranch, setPrBaseBranch] = useState('main');
 
-  const handleCreatePR = async (branchName: string) => {
+  // Initialize PR title from branch name when modal opens
+  const openPRModal = (branchName: string) => {
+    // Convert branch name to title: feature/my-thing -> Feature My Thing
+    const defaultTitle = branchName
+      .replace(/^(feature|fix|bugfix|hotfix|chore|docs|refactor|test)\//, '')
+      .replace(/[-_]/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+    setPrTitle(defaultTitle);
+    setPrBody('');
+    setPrDraft(false);
+    setPrBaseBranch('main');
+    setShowPRModal(true);
+  };
+
+  const handleCreatePR = async () => {
+    if (!prTitle.trim()) return;
+    
     setCreatingPR(true);
-    onStatusChange?.({ type: 'info', message: 'Opening PR creation in browser...' });
+    onStatusChange?.({ type: 'info', message: 'Creating pull request...' });
     
     try {
-      // Use --web flag to open GitHub's PR creation page
       const result = await window.electronAPI.createPullRequest({
-        title: branchName.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-        web: true,
+        title: prTitle.trim(),
+        body: prBody.trim() || undefined,
+        baseBranch: prBaseBranch,
+        draft: prDraft,
+        web: false,
       });
       
       if (result.success) {
         onStatusChange?.({ type: 'success', message: result.message });
+        setShowPRModal(false);
+        // Open the PR in browser
+        if (result.url) {
+          window.electronAPI.openPullRequest(result.url);
+        }
       } else {
         onStatusChange?.({ type: 'error', message: result.message });
       }
@@ -1945,10 +1973,9 @@ function SidebarDetailPanel({ focus, formatRelativeTime, formatDate, currentBran
             {branch.current && !isMainOrMaster && (
               <button 
                 className="btn btn-secondary"
-                onClick={() => handleCreatePR(branch.name)}
-                disabled={creatingPR}
+                onClick={() => openPRModal(branch.name)}
               >
-                {creatingPR ? 'Opening...' : 'Create Pull Request'}
+                Create Pull Request
               </button>
             )}
             <button 
@@ -1962,6 +1989,85 @@ function SidebarDetailPanel({ focus, formatRelativeTime, formatDate, currentBran
           {!branch.current && (
             <div className="detail-actions-hint">
               Double-click to switch to this branch
+            </div>
+          )}
+
+          {/* Create PR Modal */}
+          {showPRModal && (
+            <div className="modal-overlay" onClick={() => setShowPRModal(false)}>
+              <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3 className="modal-title">Create Pull Request</h3>
+                  <button 
+                    className="modal-close"
+                    onClick={() => setShowPRModal(false)}
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="modal-body">
+                  <div className="pr-create-branch-info">
+                    <code>{branch.name}</code>
+                    <span className="pr-arrow">→</span>
+                    <select 
+                      className="pr-base-select"
+                      value={prBaseBranch}
+                      onChange={(e) => setPrBaseBranch(e.target.value)}
+                    >
+                      <option value="main">main</option>
+                      <option value="master">master</option>
+                      <option value="develop">develop</option>
+                    </select>
+                  </div>
+                  
+                  <label className="modal-label">
+                    Title
+                    <input
+                      type="text"
+                      className="modal-input"
+                      value={prTitle}
+                      onChange={(e) => setPrTitle(e.target.value)}
+                      placeholder="PR title"
+                      autoFocus
+                    />
+                  </label>
+                  
+                  <label className="modal-label">
+                    Description
+                    <textarea
+                      className="modal-textarea"
+                      value={prBody}
+                      onChange={(e) => setPrBody(e.target.value)}
+                      placeholder="Describe your changes..."
+                      rows={6}
+                    />
+                  </label>
+                  
+                  <label className="modal-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={prDraft}
+                      onChange={(e) => setPrDraft(e.target.checked)}
+                    />
+                    <span>Create as draft</span>
+                  </label>
+                </div>
+                <div className="modal-footer">
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={() => setShowPRModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    className="btn btn-primary"
+                    onClick={handleCreatePR}
+                    disabled={!prTitle.trim() || creatingPR}
+                  >
+                    {creatingPR ? 'Creating...' : 'Create Pull Request'}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -2428,27 +2534,57 @@ function PRReviewPanel({ pr, formatRelativeTime }: PRReviewPanelProps) {
   const [fileDiff, setFileDiff] = useState<string | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [showAIComments, setShowAIComments] = useState(true);
+  const [commentText, setCommentText] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentStatus, setCommentStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Load full PR details
-  useEffect(() => {
-    const loadPRDetail = async () => {
-      setLoading(true);
-      try {
-        const [detail, comments] = await Promise.all([
-          window.electronAPI.getPRDetail(pr.number),
-          window.electronAPI.getPRReviewComments(pr.number),
-        ]);
-        setPrDetail(detail);
-        setReviewComments(comments);
-      } catch (error) {
-        console.error('Error loading PR detail:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadPRDetail = async () => {
+    setLoading(true);
+    try {
+      const [detail, comments] = await Promise.all([
+        window.electronAPI.getPRDetail(pr.number),
+        window.electronAPI.getPRReviewComments(pr.number),
+      ]);
+      setPrDetail(detail);
+      setReviewComments(comments);
+    } catch (error) {
+      console.error('Error loading PR detail:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadPRDetail();
   }, [pr.number]);
+
+  // Submit a comment
+  const handleSubmitComment = async () => {
+    if (!commentText.trim() || submittingComment) return;
+    
+    setSubmittingComment(true);
+    setCommentStatus(null);
+    
+    try {
+      const result = await window.electronAPI.commentOnPR(pr.number, commentText.trim());
+      
+      if (result.success) {
+        setCommentText('');
+        setCommentStatus({ type: 'success', message: 'Comment added!' });
+        // Reload PR details to show the new comment
+        await loadPRDetail();
+        // Clear success message after a delay
+        setTimeout(() => setCommentStatus(null), 3000);
+      } else {
+        setCommentStatus({ type: 'error', message: result.message });
+      }
+    } catch (error) {
+      setCommentStatus({ type: 'error', message: (error as Error).message });
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
 
   // Load file diff when selected
   useEffect(() => {
@@ -2646,6 +2782,37 @@ function PRReviewPanel({ pr, formatRelativeTime }: PRReviewPanelProps) {
             {filteredComments.length === 0 && filteredReviews.length === 0 && !prDetail.body && (
               <div className="pr-empty">No comments yet</div>
             )}
+
+            {/* Add Comment Form */}
+            <div className="pr-comment-form">
+              <textarea
+                className="pr-comment-input"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Write a comment..."
+                rows={3}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    handleSubmitComment();
+                  }
+                }}
+              />
+              <div className="pr-comment-form-footer">
+                {commentStatus && (
+                  <span className={`pr-comment-status ${commentStatus.type}`}>
+                    {commentStatus.message}
+                  </span>
+                )}
+                <span className="pr-comment-hint">⌘+Enter to submit</span>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleSubmitComment}
+                  disabled={!commentText.trim() || submittingComment}
+                >
+                  {submittingComment ? 'Posting...' : 'Comment'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
