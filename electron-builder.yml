@@ -19,8 +19,8 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
-  # Ad-hoc sign (no Apple Developer account needed, but users may still need xattr -cr)
-  identity: null
+  # Code sign with Developer ID Application certificate
+  identity: "Peter Thomson (R4RRG93J68)"
   # Build for Apple Silicon (arm64), Intel (x64), or both (universal)
   target:
     - target: dmg
@@ -32,11 +32,12 @@ mac:
       arch:
         - arm64
   category: public.app-category.developer-tools
+  entitlements: resources/build/entitlements.mac.plist
   entitlementsInherit: resources/build/entitlements.mac.plist
   extendInfo:
     - NSDocumentsFolderUsageDescription: Ledger needs access to read git repositories.
     - NSDownloadsFolderUsageDescription: Ledger needs access to read git repositories.
-  notarize: false
+  notarize: false  # Set to true for distribution builds
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
   title: ${productName}

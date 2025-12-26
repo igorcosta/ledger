@@ -225,6 +225,12 @@ export default function App() {
   const selectRepo = async () => {
     const path = await window.electronAPI.selectRepo()
     if (path) {
+      // Clear state before switching to prevent stale data mixing with new repo
+      setWorktrees([])
+      setBranches([])
+      setCommits([])
+      setPullRequests([])
+      setWorkingStatus(null)
       setRepoPath(path)
       await refresh()
     }
@@ -236,14 +242,17 @@ export default function App() {
     setPrError(null)
 
     try {
+      // Phase 1: Fast initial load - basic data without expensive per-item metadata
+      // Uses getBranchesBasic() instead of getBranchesWithMetadata() (saves 600+ git commands)
+      // Uses getCommitGraphHistory with skipStats=true (saves 100 git commands)
       const [branchResult, worktreeResult, prResult, commitResult, statusResult, ghUrl, graphResult, stashResult] = await Promise.all([
-        window.electronAPI.getBranchesWithMetadata(),
+        window.electronAPI.getBranchesBasic(),
         window.electronAPI.getWorktrees(),
         window.electronAPI.getPullRequests(),
         window.electronAPI.getCommitHistory(15),
         window.electronAPI.getWorkingStatus(),
         window.electronAPI.getGitHubUrl(),
-        window.electronAPI.getCommitGraphHistory(100),
+        window.electronAPI.getCommitGraphHistory(100, true), // skipStats for fast load
         window.electronAPI.getStashes(),
       ])
 
@@ -281,6 +290,16 @@ export default function App() {
       setWorkingStatus(statusResult)
       setGraphCommits(graphResult)
       setStashes(stashResult)
+      
+      // Phase 2: Deferred metadata loading in background
+      // This loads detailed branch metadata (commit counts, dates) after initial render
+      window.electronAPI.getBranchesWithMetadata().then((metaResult) => {
+        if (!('error' in metaResult)) {
+          setBranches(metaResult.branches)
+        }
+      }).catch(() => {
+        // Silently ignore - we already have basic branch data
+      })
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -554,6 +573,16 @@ export default function App() {
       case 'worktree': {
         const wt = contextMenu.data as Worktree
         const hasChanges = wt.changedFileCount > 0 || wt.additions > 0 || wt.deletions > 0
+        const isWorkingFolder = wt.agent === 'working-folder'
+        
+        if (isWorkingFolder) {
+          // Working folder has different actions - you're already here!
+          return [
+            { label: 'Open in Focus', action: () => { closeContextMenu(); handleRadarWorktreeClick(wt) } },
+            { label: 'Open in Finder', action: () => handleWorktreeOpen(wt) },
+          ]
+        }
+        
         return [
           { label: 'Open in Focus', action: () => { closeContextMenu(); handleRadarWorktreeClick(wt) } },
           { label: 'Check Out Worktree', action: () => handleWorktreeDoubleClick(wt), disabled: !wt.branch || wt.branch === currentBranch || switching },
@@ -762,9 +791,36 @@ export default function App() {
     return sortBranches(filtered, remoteSort)
   }, [branches, remoteFilter, remoteSort, remoteBranchSearch])
 
+  // Create the "Working Folder" pseudo-worktree representing the main repo folder
+  // This helps users understand they're already using worktrees conceptually
+  const workingFolderWorktree: Worktree | null = useMemo(() => {
+    if (!repoPath) return null
+    
+    // Get repo name from path (last segment)
+    const repoName = repoPath.split('/').pop() || 'Repository'
+    
+    return {
+      path: repoPath,
+      head: '', // Will show current commit
+      branch: currentBranch || null,
+      bare: false,
+      agent: 'working-folder' as const,
+      agentIndex: 1,
+      contextHint: repoName,
+      displayName: `Working Folder`,
+      changedFileCount: workingStatus?.files.length ?? 0,
+      additions: workingStatus?.additions ?? 0,
+      deletions: workingStatus?.deletions ?? 0,
+      lastModified: new Date().toISOString(),
+    }
+  }, [repoPath, currentBranch, workingStatus])
+
   // Extract unique parent folders from worktrees
   const worktreeParents = useMemo(() => {
     const parents = new Set<string>()
+    // Always include 'main' since working folder is always there
+    if (repoPath) parents.add('main')
+    
     for (const wt of worktrees) {
       // Extract parent folder from path (e.g., ~/.cursor/worktrees/xxx -> .cursor)
       const pathParts = wt.path.split('/')
@@ -786,7 +842,8 @@ export default function App() {
 
   // Filter worktrees by parent and search
   const filteredWorktrees = useMemo(() => {
-    let filtered = worktrees
+    // Filter out the main repo worktree since we show it as "Working Folder" pseudo-entry
+    let filtered = worktrees.filter(wt => wt.path !== repoPath)
     
     // Apply parent filter
     if (worktreeParentFilter !== 'all') {
@@ -807,8 +864,21 @@ export default function App() {
       )
     }
     
+    // Prepend the working folder pseudo-worktree
+    // It should appear first and match the 'main' filter
+    if (workingFolderWorktree) {
+      const matchesParentFilter = worktreeParentFilter === 'all' || worktreeParentFilter === 'main'
+      const matchesSearch = !worktreeSearch.trim() || 
+        workingFolderWorktree.displayName.toLowerCase().includes(worktreeSearch.toLowerCase().trim()) ||
+        (workingFolderWorktree.branch && workingFolderWorktree.branch.toLowerCase().includes(worktreeSearch.toLowerCase().trim()))
+      
+      if (matchesParentFilter && matchesSearch) {
+        filtered = [workingFolderWorktree, ...filtered]
+      }
+    }
+    
     return filtered
-  }, [worktrees, worktreeParentFilter, repoPath, worktreeSearch])
+  }, [worktrees, worktreeParentFilter, repoPath, worktreeSearch, workingFolderWorktree])
 
   // Filter and sort PRs
   const filteredPRs = useMemo(() => {
@@ -1263,36 +1333,43 @@ export default function App() {
                 </div>
               ) : (
                 <ul className="item-list">
-                  {filteredWorktrees.map((wt) => (
-                    <li
-                      key={wt.path}
-                      className={`item worktree-item clickable ${wt.branch === currentBranch ? 'current' : ''}`}
-                      onDoubleClick={() => handleRadarWorktreeClick(wt)}
-                      onContextMenu={(e) => handleContextMenu(e, 'worktree', wt)}
-                    >
-                      <div className="item-main">
-                        <span className="item-name">{wt.displayName}</span>
-                        {wt.branch === currentBranch && <span className="current-indicator">●</span>}
-                      </div>
-                      <div className="item-path" title={wt.path}>
-                        {wt.path.replace(/^\/Users\/[^/]+/, '~')}
-                      </div>
-                      <div className="item-meta worktree-stats">
-                        <code className="commit-hash">{wt.path.split('/').pop()}</code>
-                        {(wt.additions > 0 || wt.deletions > 0) && (
-                          <>
-                            {wt.additions > 0 && <span className="diff-additions">+{wt.additions}</span>}
-                            {wt.deletions > 0 && <span className="diff-deletions">-{wt.deletions}</span>}
-                            <span className="diff-separator">·</span>
-                          </>
-                        )}
-                        {wt.changedFileCount > 0 && (
-                          <span className="file-count">{wt.changedFileCount} {wt.changedFileCount === 1 ? 'file' : 'files'}</span>
-                        )}
-                        {wt.changedFileCount === 0 && <span className="clean-indicator">clean</span>}
-                      </div>
-                    </li>
-                  ))}
+                  {filteredWorktrees.map((wt) => {
+                    const isWorkingFolder = wt.agent === 'working-folder'
+                    return (
+                      <li
+                        key={wt.path}
+                        className={`item worktree-item clickable ${!isWorkingFolder && wt.branch === currentBranch ? 'current' : ''} ${isWorkingFolder ? 'working-folder' : ''}`}
+                        onDoubleClick={() => !isWorkingFolder && handleRadarWorktreeClick(wt)}
+                        onContextMenu={(e) => handleContextMenu(e, 'worktree', wt)}
+                      >
+                        <div className="item-main">
+                          <span className="item-name">{wt.displayName}</span>
+                          {!isWorkingFolder && wt.branch === currentBranch && <span className="current-indicator">●</span>}
+                        </div>
+                        <div className="item-path" title={wt.path}>
+                          {wt.path.replace(/^\/Users\/[^/]+/, '~')}
+                        </div>
+                        <div className="item-meta worktree-stats">
+                          {isWorkingFolder ? (
+                            <code className="commit-hash">{wt.branch || 'detached'}</code>
+                          ) : (
+                            <code className="commit-hash">{wt.path.split('/').pop()}</code>
+                          )}
+                          {(wt.additions > 0 || wt.deletions > 0) && (
+                            <>
+                              {wt.additions > 0 && <span className="diff-additions">+{wt.additions}</span>}
+                              {wt.deletions > 0 && <span className="diff-deletions">-{wt.deletions}</span>}
+                              <span className="diff-separator">·</span>
+                            </>
+                          )}
+                          {wt.changedFileCount > 0 && (
+                            <span className="file-count">{wt.changedFileCount} {wt.changedFileCount === 1 ? 'file' : 'files'}</span>
+                          )}
+                          {wt.changedFileCount === 0 && <span className="clean-indicator">clean</span>}
+                        </div>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </div>
@@ -1839,7 +1916,7 @@ export default function App() {
                 >
                   <span className={`sidebar-chevron ${sidebarSections.worktrees ? 'open' : ''}`}>▸</span>
                   <span className="sidebar-section-title">Worktrees</span>
-                  <span className="sidebar-count">{worktrees.length}</span>
+                  <span className="sidebar-count">{worktrees.filter(wt => wt.path !== repoPath).length + (workingFolderWorktree ? 1 : 0)}</span>
                 </div>
                 <button 
                   className={`sidebar-section-action sidebar-filter-btn ${sidebarFiltersOpen.worktrees ? 'active' : ''}`}
@@ -1870,7 +1947,17 @@ export default function App() {
               )}
               {sidebarSections.worktrees && (
                 <ul className="sidebar-list">
-                  {worktrees.map((wt) => (
+                  {/* Working Folder pseudo-worktree - always first */}
+                  {workingFolderWorktree && (
+                    <li
+                      key="working-folder"
+                      className={`sidebar-item working-folder-sidebar-item ${switching ? 'disabled' : ''} ${sidebarFocus?.type === 'worktree' && (sidebarFocus.data as Worktree).agent === 'working-folder' ? 'selected' : ''}`}
+                      onClick={() => handleSidebarFocus('worktree', workingFolderWorktree)}
+                    >
+                      <span className="sidebar-item-name">{workingFolderWorktree.displayName}</span>
+                    </li>
+                  )}
+                  {worktrees.filter(wt => wt.path !== repoPath).map((wt) => (
                     <li
                       key={wt.path}
                       className={`sidebar-item ${wt.branch === currentBranch ? 'current' : ''} ${switching ? 'disabled' : ''} ${sidebarFocus?.type === 'worktree' && (sidebarFocus.data as Worktree).path === wt.path ? 'selected' : ''}`}
@@ -3601,6 +3688,7 @@ interface WorktreeDetailPanelProps {
 function WorktreeDetailPanel({ worktree, currentBranch, switching, onStatusChange, onRefresh, onClearFocus, onCheckoutWorktree }: WorktreeDetailPanelProps) {
   const [actionInProgress, setActionInProgress] = useState(false);
   
+  const isWorkingFolder = worktree.agent === 'working-folder';
   const isCurrent = worktree.branch === currentBranch;
   const hasChanges = worktree.changedFileCount > 0 || worktree.additions > 0 || worktree.deletions > 0;
 
@@ -3688,6 +3776,68 @@ function WorktreeDetailPanel({ worktree, currentBranch, switching, onStatusChang
       setActionInProgress(false);
     }
   };
+
+  // Special rendering for Working Folder
+  if (isWorkingFolder) {
+    return (
+      <div className="sidebar-detail-panel">
+        <div className="detail-type-badge working-folder-badge">Working Folder</div>
+        <h3 className="detail-title">{worktree.displayName}</h3>
+        <div className="detail-meta-grid">
+          <div className="detail-meta-item full-width">
+            <span className="meta-label">Path</span>
+            <code className="meta-value path">{worktree.path}</code>
+          </div>
+          {worktree.branch && (
+            <div className="detail-meta-item">
+              <span className="meta-label">Branch</span>
+              <code className="meta-value">{worktree.branch}</code>
+            </div>
+          )}
+          <div className="detail-meta-item">
+            <span className="meta-label">Status</span>
+            <span className="meta-value working-folder-status">Active</span>
+          </div>
+          <div className="detail-meta-item">
+            <span className="meta-label">Changes</span>
+            <span className="meta-value">
+              {hasChanges ? (
+                <>
+                  {worktree.changedFileCount} {worktree.changedFileCount === 1 ? 'file' : 'files'}
+                  {(worktree.additions > 0 || worktree.deletions > 0) && (
+                    <>
+                      {' · '}
+                      <span className="diff-additions">+{worktree.additions}</span>
+                      {' '}
+                      <span className="diff-deletions">-{worktree.deletions}</span>
+                    </>
+                  )}
+                </>
+              ) : (
+                'Clean'
+              )}
+            </span>
+          </div>
+        </div>
+        
+        <div className="working-folder-explainer">
+          <p>
+            This is your main working directory. You're already using worktrees—each worktree 
+            is just another folder where you can work on a different branch simultaneously.
+          </p>
+        </div>
+        
+        <div className="detail-actions worktree-actions">
+          <button 
+            className="btn btn-primary"
+            onClick={handleOpenInFinder}
+          >
+            Open in Finder
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="sidebar-detail-panel">

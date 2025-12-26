@@ -18,7 +18,7 @@ export interface BranchesResult {
   error?: string;
 }
 
-export type WorktreeAgent = 'cursor' | 'claude' | 'gemini' | 'junie' | 'unknown';
+export type WorktreeAgent = 'cursor' | 'claude' | 'gemini' | 'junie' | 'unknown' | 'working-folder';
 
 export interface Worktree {
   path: string;
@@ -283,6 +283,7 @@ export interface ElectronAPI {
   getSavedRepoPath: () => Promise<string | null>;
   loadSavedRepo: () => Promise<string | null>;
   getBranches: () => Promise<BranchesResult>;
+  getBranchesBasic: () => Promise<BranchesResult>;
   getBranchesWithMetadata: () => Promise<BranchesResult>;
   getWorktrees: () => Promise<Worktree[] | { error: string }>;
   // Checkout operations
@@ -313,7 +314,7 @@ export interface ElectronAPI {
   // Reset operations
   resetToCommit: (commitHash: string, mode: 'soft' | 'mixed' | 'hard') => Promise<CheckoutResult>;
   // Work mode APIs
-  getCommitGraphHistory: (limit?: number) => Promise<GraphCommit[]>;
+  getCommitGraphHistory: (limit?: number, skipStats?: boolean) => Promise<GraphCommit[]>;
   getCommitDiff: (commitHash: string) => Promise<CommitDiff | null>;
   getBranchDiff: (branchName: string) => Promise<BranchDiff | null>;
   getStashes: () => Promise<StashEntry[]>;

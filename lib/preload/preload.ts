@@ -8,6 +8,7 @@ const electronAPI = {
   getSavedRepoPath: () => ipcRenderer.invoke('get-saved-repo-path'),
   loadSavedRepo: () => ipcRenderer.invoke('load-saved-repo'),
   getBranches: () => ipcRenderer.invoke('get-branches'),
+  getBranchesBasic: () => ipcRenderer.invoke('get-branches-basic'),
   getBranchesWithMetadata: () => ipcRenderer.invoke('get-branches-with-metadata'),
   getWorktrees: () => ipcRenderer.invoke('get-worktrees'),
   // Checkout operations
@@ -34,7 +35,7 @@ const electronAPI = {
   // Reset operations
   resetToCommit: (commitHash: string, mode: 'soft' | 'mixed' | 'hard') => ipcRenderer.invoke('reset-to-commit', commitHash, mode),
   // Work mode APIs
-  getCommitGraphHistory: (limit?: number) => ipcRenderer.invoke('get-commit-graph-history', limit),
+  getCommitGraphHistory: (limit?: number, skipStats?: boolean) => ipcRenderer.invoke('get-commit-graph-history', limit, skipStats),
   getCommitDiff: (commitHash: string) => ipcRenderer.invoke('get-commit-diff', commitHash),
   getBranchDiff: (branchName: string) => ipcRenderer.invoke('get-branch-diff', branchName),
   getStashes: () => ipcRenderer.invoke('get-stashes'),

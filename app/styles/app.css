@@ -829,6 +829,64 @@ body,
   font-style: italic;
 }
 
+/* Working Folder Styles */
+
+/* Working folder in radar view - subtle like uncommitted changes */
+.worktree-item.working-folder {
+  /* No special background or border - keep it subtle */
+}
+
+.worktree-item.working-folder .item-name {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.worktree-item.working-folder .item-path {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+/* Working folder icon prefix */
+.working-folder-icon {
+  margin-right: 4px;
+  opacity: 0.6;
+}
+
+/* Working folder in sidebar - also subtle */
+.working-folder-sidebar-item {
+  font-weight: 400;
+}
+
+.working-folder-sidebar-item .sidebar-item-name {
+  color: var(--text-muted);
+}
+
+/* Working folder detail panel - can keep some accent for context */
+.working-folder-badge {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.working-folder-status {
+  color: var(--text-secondary);
+}
+
+.working-folder-explainer {
+  margin: 16px 0;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--border);
+}
+
+.working-folder-explainer p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
 .pr-error {
   display: flex;
   flex-direction: column;

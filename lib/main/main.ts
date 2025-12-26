@@ -5,6 +5,7 @@ import {
   setRepoPath, 
   getRepoPath, 
   getBranches, 
+  getBranchesBasic,
   getBranchesWithMetadata, 
   getEnhancedWorktrees,
   checkoutBranch,
@@ -104,6 +105,15 @@ app.whenReady().then(() => {
   ipcMain.handle('get-branches', async () => {
     try {
       return await getBranches();
+    } catch (error) {
+      return { error: (error as Error).message };
+    }
+  });
+
+  // Fast branch loading for initial render (no per-branch metadata)
+  ipcMain.handle('get-branches-basic', async () => {
+    try {
+      return await getBranchesBasic();
     } catch (error) {
       return { error: (error as Error).message };
     }
@@ -230,9 +240,9 @@ app.whenReady().then(() => {
   });
 
   // Work mode APIs
-  ipcMain.handle('get-commit-graph-history', async (_, limit?: number) => {
+  ipcMain.handle('get-commit-graph-history', async (_, limit?: number, skipStats?: boolean) => {
     try {
-      return await getCommitGraphHistory(limit);
+      return await getCommitGraphHistory(limit, skipStats);
     } catch (_error) {
       return [];
     }

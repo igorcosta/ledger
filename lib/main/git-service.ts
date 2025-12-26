@@ -119,6 +119,28 @@ export async function getUnmergedBranches(baseBranch: string = 'origin/master'):
   }
 }
 
+// Fast branch loading - only gets basic info, no per-branch metadata
+// This is much faster for large repos (single git command vs 3*N commands)
+export async function getBranchesBasic() {
+  if (!git) throw new Error('No repository selected');
+
+  const { current, branches } = await getBranches();
+  const unmergedBranches = await getUnmergedBranches();
+  const unmergedSet = new Set(unmergedBranches);
+
+  // Just add isMerged status - no expensive per-branch metadata
+  const branchesWithMergedStatus = branches.map(branch => ({
+    ...branch,
+    isMerged: !unmergedSet.has(branch.name),
+  }));
+
+  return {
+    current,
+    branches: branchesWithMergedStatus,
+  };
+}
+
+// Full metadata loading - expensive, should be called in background after initial load
 export async function getBranchesWithMetadata() {
   if (!git) throw new Error('No repository selected');
 
@@ -196,7 +218,7 @@ export async function getWorktrees() {
 }
 
 // Agent workspace types
-export type WorktreeAgent = 'cursor' | 'claude' | 'gemini' | 'junie' | 'unknown';
+export type WorktreeAgent = 'cursor' | 'claude' | 'gemini' | 'junie' | 'unknown' | 'working-folder';
 
 export interface EnhancedWorktree {
   path: string;
@@ -362,6 +384,7 @@ export async function getEnhancedWorktrees(): Promise<EnhancedWorktree[]> {
     gemini: 0,
     junie: 0,
     unknown: 0,
+    'working-folder': 0, // Not used here (created client-side) but needed for type safety
   };
 
   for (const wt of enhanced) {
@@ -1723,7 +1746,8 @@ export interface GraphCommit {
 }
 
 // Get commit history with parent info for git graph
-export async function getCommitGraphHistory(limit: number = 100): Promise<GraphCommit[]> {
+// skipStats=true makes this much faster for initial load (100x fewer git commands)
+export async function getCommitGraphHistory(limit: number = 100, skipStats: boolean = false): Promise<GraphCommit[]> {
   if (!git) throw new Error('No repository selected');
 
   try {
@@ -1744,23 +1768,25 @@ export async function getCommitGraphHistory(limit: number = 100): Promise<GraphC
       const parents = parentStr ? parentStr.split(' ').filter(Boolean) : [];
       const refs = refsStr ? refsStr.split(', ').filter(Boolean).map(r => r.trim()) : [];
       
-      // Get stats for each commit (could be optimized with --stat in a batch)
+      // Skip expensive per-commit stats unless explicitly requested
       let filesChanged = 0;
       let additions = 0;
       let deletions = 0;
       
-      try {
-        const statOutput = await git.raw(['show', '--stat', '--format=', hash]);
-        const statLines = statOutput.trim().split('\n');
-        const summaryLine = statLines[statLines.length - 1];
-        const filesMatch = summaryLine.match(/(\d+) files? changed/);
-        const addMatch = summaryLine.match(/(\d+) insertions?\(\+\)/);
-        const delMatch = summaryLine.match(/(\d+) deletions?\(-\)/);
-        filesChanged = filesMatch ? parseInt(filesMatch[1]) : 0;
-        additions = addMatch ? parseInt(addMatch[1]) : 0;
-        deletions = delMatch ? parseInt(delMatch[1]) : 0;
-      } catch {
-        // Ignore stat errors
+      if (!skipStats) {
+        try {
+          const statOutput = await git.raw(['show', '--stat', '--format=', hash]);
+          const statLines = statOutput.trim().split('\n');
+          const summaryLine = statLines[statLines.length - 1];
+          const filesMatch = summaryLine.match(/(\d+) files? changed/);
+          const addMatch = summaryLine.match(/(\d+) insertions?\(\+\)/);
+          const delMatch = summaryLine.match(/(\d+) deletions?\(-\)/);
+          filesChanged = filesMatch ? parseInt(filesMatch[1]) : 0;
+          additions = addMatch ? parseInt(addMatch[1]) : 0;
+          deletions = delMatch ? parseInt(delMatch[1]) : 0;
+        } catch {
+          // Ignore stat errors
+        }
       }
 
       commits.push({

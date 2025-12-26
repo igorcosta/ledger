@@ -40,14 +40,31 @@ This document tracks performance progress, regressions, and tradeoffs in Ledger.
 
 ## Performance Log
 
+### 2024-12-27 - Two-Phase Loading Optimization
+
+**Problem:** Initial load on large repos (200+ branches) took 30+ seconds due to:
+- `getBranchesWithMetadata()` running 3 git commands per branch (600+ git processes)
+- `getCommitGraphHistory()` running `git show --stat` per commit (100 git processes)
+
+**Solution:** Implemented two-phase loading:
+1. **Phase 1 (Fast):** Uses new `getBranchesBasic()` - only branch names + merged status (2 git commands total)
+2. **Phase 1 (Fast):** `getCommitGraphHistory(limit, skipStats=true)` - skips per-commit stats
+3. **Phase 2 (Deferred):** Full metadata loaded in background after initial render
+
+**Result:** Initial render now ~1-2 seconds, metadata populates progressively
+
+**Tradeoff:** 
+- Branch commit counts/dates appear after initial render
+- Commit graph stats (additions/deletions) not shown initially
+
 ### 2024-12-26 - Performance Regression Noted
 
 **Observation:** App is slow on large repos again.
 
 **Next Steps:**
-- [ ] Profile `getBranchesWithMetadata()` on large repo
-- [ ] Identify bottlenecks in git-service.ts
-- [ ] Consider pagination or lazy loading for branches
+- [x] Profile `getBranchesWithMetadata()` on large repo
+- [x] Identify bottlenecks in git-service.ts
+- [x] Consider pagination or lazy loading for branches
 
 ---
 
