@@ -73,6 +73,14 @@ export default function App() {
     prs: true,
   })
   
+  // Sidebar filter panels open state
+  const [sidebarFiltersOpen, setSidebarFiltersOpen] = useState({
+    prs: false,
+    branches: false,
+    remotes: false,
+    worktrees: false,
+  })
+  
   // Filter and sort state
   const [localFilter, setLocalFilter] = useState<BranchFilter>('all')
   const [localSort, setLocalSort] = useState<BranchSort>('name')
@@ -214,6 +222,11 @@ export default function App() {
   // Toggle sidebar section
   const toggleSidebarSection = useCallback((section: keyof typeof sidebarSections) => {
     setSidebarSections(prev => ({ ...prev, [section]: !prev[section] }))
+  }, [])
+  
+  // Toggle sidebar filter panel
+  const toggleSidebarFilter = useCallback((section: keyof typeof sidebarFiltersOpen) => {
+    setSidebarFiltersOpen(prev => ({ ...prev, [section]: !prev[section] }))
   }, [])
 
   // Radar card double-click handlers - switch to Focus mode with item selected
@@ -1356,7 +1369,45 @@ export default function App() {
                   <span className="sidebar-section-title">Pull Requests</span>
                   <span className="sidebar-count">{filteredPRs.length}</span>
                 </div>
+                <button 
+                  className={`sidebar-section-action sidebar-filter-btn ${sidebarFiltersOpen.prs ? 'active' : ''}`}
+                  onClick={(e) => { e.stopPropagation(); toggleSidebarFilter('prs'); }}
+                  title="Filter & Sort"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                  </svg>
+                </button>
               </div>
+              {sidebarFiltersOpen.prs && (
+                <div className="sidebar-filter-panel" onClick={(e) => e.stopPropagation()}>
+                  <div className="sidebar-filter-group">
+                    <label>Filter</label>
+                    <select 
+                      value={prFilter} 
+                      onChange={(e) => setPrFilter(e.target.value as PRFilter)}
+                      className="sidebar-filter-select"
+                    >
+                      <option value="all">All Open</option>
+                      <option value="open-not-draft">Open + Not Draft</option>
+                      <option value="open-draft">Open + Draft</option>
+                    </select>
+                  </div>
+                  <div className="sidebar-filter-group">
+                    <label>Sort</label>
+                    <select 
+                      value={prSort} 
+                      onChange={(e) => setPrSort(e.target.value as PRSort)}
+                      className="sidebar-filter-select"
+                    >
+                      <option value="updated">Last Updated</option>
+                      <option value="comments">Comments</option>
+                      <option value="first-commit">First Commit</option>
+                      <option value="last-commit">Last Commit</option>
+                    </select>
+                  </div>
+                </div>
+              )}
               {sidebarSections.prs && (
                 <ul className="sidebar-list">
                   {prError ? (
@@ -1397,6 +1448,15 @@ export default function App() {
                   <span className="sidebar-count">{localBranches.length}</span>
                 </div>
                 <button 
+                  className={`sidebar-section-action sidebar-filter-btn ${sidebarFiltersOpen.branches ? 'active' : ''}`}
+                  onClick={(e) => { e.stopPropagation(); toggleSidebarFilter('branches'); }}
+                  title="Filter & Sort"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                  </svg>
+                </button>
+                <button 
                   className="sidebar-section-action"
                   onClick={(e) => { e.stopPropagation(); setShowNewBranchModal(true); }}
                   title="Create new branch"
@@ -1404,6 +1464,35 @@ export default function App() {
                   +
                 </button>
               </div>
+              {sidebarFiltersOpen.branches && (
+                <div className="sidebar-filter-panel" onClick={(e) => e.stopPropagation()}>
+                  <div className="sidebar-filter-group">
+                    <label>Filter</label>
+                    <select 
+                      value={localFilter} 
+                      onChange={(e) => setLocalFilter(e.target.value as BranchFilter)}
+                      className="sidebar-filter-select"
+                    >
+                      <option value="all">All</option>
+                      <option value="local-only">Local Only</option>
+                      <option value="unmerged">Unmerged</option>
+                    </select>
+                  </div>
+                  <div className="sidebar-filter-group">
+                    <label>Sort</label>
+                    <select 
+                      value={localSort} 
+                      onChange={(e) => setLocalSort(e.target.value as BranchSort)}
+                      className="sidebar-filter-select"
+                    >
+                      <option value="name">Name</option>
+                      <option value="last-commit">Last Commit</option>
+                      <option value="first-commit">First Commit</option>
+                      <option value="most-commits">Most Commits</option>
+                    </select>
+                  </div>
+                </div>
+              )}
               {sidebarSections.branches && (
                 <ul className="sidebar-list">
                   {/* Uncommitted changes entry */}
@@ -1445,7 +1534,44 @@ export default function App() {
                   <span className="sidebar-section-title">Remotes</span>
                   <span className="sidebar-count">{remoteBranches.length}</span>
                 </div>
+                <button 
+                  className={`sidebar-section-action sidebar-filter-btn ${sidebarFiltersOpen.remotes ? 'active' : ''}`}
+                  onClick={(e) => { e.stopPropagation(); toggleSidebarFilter('remotes'); }}
+                  title="Filter & Sort"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                  </svg>
+                </button>
               </div>
+              {sidebarFiltersOpen.remotes && (
+                <div className="sidebar-filter-panel" onClick={(e) => e.stopPropagation()}>
+                  <div className="sidebar-filter-group">
+                    <label>Filter</label>
+                    <select 
+                      value={remoteFilter} 
+                      onChange={(e) => setRemoteFilter(e.target.value as BranchFilter)}
+                      className="sidebar-filter-select"
+                    >
+                      <option value="all">All</option>
+                      <option value="unmerged">Unmerged</option>
+                    </select>
+                  </div>
+                  <div className="sidebar-filter-group">
+                    <label>Sort</label>
+                    <select 
+                      value={remoteSort} 
+                      onChange={(e) => setRemoteSort(e.target.value as BranchSort)}
+                      className="sidebar-filter-select"
+                    >
+                      <option value="name">Name</option>
+                      <option value="last-commit">Last Commit</option>
+                      <option value="first-commit">First Commit</option>
+                      <option value="most-commits">Most Commits</option>
+                    </select>
+                  </div>
+                </div>
+              )}
               {sidebarSections.remotes && (
                 <ul className="sidebar-list">
                   {remoteBranches.map((branch) => (
@@ -1473,7 +1599,33 @@ export default function App() {
                   <span className="sidebar-section-title">Worktrees</span>
                   <span className="sidebar-count">{worktrees.length}</span>
                 </div>
+                <button 
+                  className={`sidebar-section-action sidebar-filter-btn ${sidebarFiltersOpen.worktrees ? 'active' : ''}`}
+                  onClick={(e) => { e.stopPropagation(); toggleSidebarFilter('worktrees'); }}
+                  title="Filter"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                  </svg>
+                </button>
               </div>
+              {sidebarFiltersOpen.worktrees && (
+                <div className="sidebar-filter-panel" onClick={(e) => e.stopPropagation()}>
+                  <div className="sidebar-filter-group">
+                    <label>Parent</label>
+                    <select 
+                      value={worktreeParentFilter} 
+                      onChange={(e) => setWorktreeParentFilter(e.target.value)}
+                      className="sidebar-filter-select"
+                    >
+                      <option value="all">All</option>
+                      {worktreeParents.map(parent => (
+                        <option key={parent} value={parent}>{parent}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
               {sidebarSections.worktrees && (
                 <ul className="sidebar-list">
                   {worktrees.map((wt) => (

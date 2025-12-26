@@ -1090,6 +1090,71 @@ body,
   color: var(--text-primary);
 }
 
+.sidebar-filter-btn {
+  font-size: 12px;
+}
+
+.sidebar-filter-btn.active {
+  opacity: 1;
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.sidebar-filter-btn.active:hover {
+  background: rgba(91, 155, 213, 0.2);
+}
+
+/* Sidebar Filter Panel */
+.sidebar-filter-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sidebar-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-filter-group label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  min-width: 36px;
+}
+
+.sidebar-filter-select {
+  flex: 1;
+  padding: 3px 20px 3px 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666666' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
+  transition: all 0.1s ease;
+}
+
+.sidebar-filter-select:hover {
+  border-color: #AAAAAA;
+}
+
+.sidebar-filter-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .sidebar-chevron {
   font-size: 10px;
   color: var(--text-muted);
