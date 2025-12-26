@@ -1478,6 +1478,7 @@ export default function App() {
                 formatRelativeTime={formatRelativeTime}
                 formatDate={formatDate}
                 currentBranch={currentBranch}
+                onStatusChange={setStatus}
               />
             ) : !selectedCommit ? (
               <div className="detail-empty">
@@ -1832,9 +1833,35 @@ interface SidebarDetailPanelProps {
   formatRelativeTime: (date: string) => string;
   formatDate: (date?: string) => string;
   currentBranch: string;
+  onStatusChange?: (status: StatusMessage | null) => void;
 }
 
-function SidebarDetailPanel({ focus, formatRelativeTime, formatDate, currentBranch }: SidebarDetailPanelProps) {
+function SidebarDetailPanel({ focus, formatRelativeTime, formatDate, currentBranch, onStatusChange }: SidebarDetailPanelProps) {
+  const [creatingPR, setCreatingPR] = useState(false);
+
+  const handleCreatePR = async (branchName: string) => {
+    setCreatingPR(true);
+    onStatusChange?.({ type: 'info', message: 'Opening PR creation in browser...' });
+    
+    try {
+      // Use --web flag to open GitHub's PR creation page
+      const result = await window.electronAPI.createPullRequest({
+        title: branchName.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        web: true,
+      });
+      
+      if (result.success) {
+        onStatusChange?.({ type: 'success', message: result.message });
+      } else {
+        onStatusChange?.({ type: 'error', message: result.message });
+      }
+    } catch (error) {
+      onStatusChange?.({ type: 'error', message: (error as Error).message });
+    } finally {
+      setCreatingPR(false);
+    }
+  };
+
   switch (focus.type) {
     case 'pr': {
       // Handled by PRReviewPanel
@@ -1843,6 +1870,7 @@ function SidebarDetailPanel({ focus, formatRelativeTime, formatDate, currentBran
     
     case 'branch': {
       const branch = focus.data as Branch;
+      const isMainOrMaster = branch.name === 'main' || branch.name === 'master';
       return (
         <div className="sidebar-detail-panel">
           <div className="detail-type-badge">Local Branch</div>
@@ -1882,6 +1910,26 @@ function SidebarDetailPanel({ focus, formatRelativeTime, formatDate, currentBran
               <span className="meta-value">{branch.isMerged ? 'Yes' : 'No'}</span>
             </div>
           </div>
+          
+          {/* Actions */}
+          <div className="detail-actions">
+            {branch.current && !isMainOrMaster && (
+              <button 
+                className="btn btn-primary"
+                onClick={() => handleCreatePR(branch.name)}
+                disabled={creatingPR}
+              >
+                {creatingPR ? 'Opening...' : 'Create Pull Request'}
+              </button>
+            )}
+            <button 
+              className="btn btn-secondary"
+              onClick={() => window.electronAPI.openBranchInGitHub(branch.name)}
+            >
+              View on GitHub
+            </button>
+          </div>
+          
           {!branch.current && (
             <div className="detail-actions-hint">
               Double-click to switch to this branch

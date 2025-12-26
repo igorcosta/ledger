@@ -588,6 +588,63 @@ export async function openPullRequest(url: string): Promise<{ success: boolean; 
   }
 }
 
+// Create a new pull request
+export async function createPullRequest(options: {
+  title: string;
+  body?: string;
+  baseBranch?: string;
+  draft?: boolean;
+  web?: boolean;
+}): Promise<{ success: boolean; message: string; url?: string }> {
+  if (!repoPath) {
+    return { success: false, message: 'No repository selected' };
+  }
+
+  try {
+    const args = ['pr', 'create'];
+    
+    args.push('--title', `"${options.title.replace(/"/g, '\\"')}"`);
+    
+    if (options.body) {
+      args.push('--body', `"${options.body.replace(/"/g, '\\"')}"`);
+    }
+    
+    if (options.baseBranch) {
+      args.push('--base', options.baseBranch);
+    }
+    
+    if (options.draft) {
+      args.push('--draft');
+    }
+    
+    if (options.web) {
+      // Open in browser for full editing
+      args.push('--web');
+      await execAsync(`gh ${args.join(' ')}`, { cwd: repoPath });
+      return { success: true, message: 'Opened PR creation in browser' };
+    }
+    
+    const { stdout } = await execAsync(`gh ${args.join(' ')}`, { cwd: repoPath });
+    const url = stdout.trim();
+    
+    return { 
+      success: true, 
+      message: 'Pull request created',
+      url 
+    };
+  } catch (error) {
+    const errorMessage = (error as Error).message;
+    // Check for common errors
+    if (errorMessage.includes('already exists')) {
+      return { success: false, message: 'A pull request already exists for this branch' };
+    }
+    if (errorMessage.includes('not logged')) {
+      return { success: false, message: 'Not logged into GitHub CLI. Run `gh auth login` in terminal.' };
+    }
+    return { success: false, message: errorMessage };
+  }
+}
+
 // ========================================
 // PR Review Types and Functions
 // ========================================

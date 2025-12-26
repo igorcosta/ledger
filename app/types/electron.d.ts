@@ -277,6 +277,13 @@ export interface ElectronAPI {
   // Pull requests
   getPullRequests: () => Promise<PullRequestsResult>;
   openPullRequest: (url: string) => Promise<{ success: boolean; message: string }>;
+  createPullRequest: (options: { 
+    title: string; 
+    body?: string; 
+    baseBranch?: string; 
+    draft?: boolean; 
+    web?: boolean 
+  }) => Promise<{ success: boolean; message: string; url?: string }>;
   checkoutPRBranch: (branchName: string) => Promise<CheckoutResult>;
   // Remote operations
   getGitHubUrl: () => Promise<string | null>;

@@ -12,6 +12,7 @@ import {
   checkoutRemoteBranch,
   getPullRequests,
   openPullRequest,
+  createPullRequest,
   getGitHubUrl,
   openBranchInGitHub,
   pullBranch,
@@ -151,6 +152,20 @@ app.whenReady().then(() => {
 
   ipcMain.handle('open-pull-request', async (_, url: string) => {
     return await openPullRequest(url);
+  });
+
+  ipcMain.handle('create-pull-request', async (_, options: {
+    title: string;
+    body?: string;
+    baseBranch?: string;
+    draft?: boolean;
+    web?: boolean;
+  }) => {
+    try {
+      return await createPullRequest(options);
+    } catch (error) {
+      return { success: false, message: (error as Error).message };
+    }
   });
 
   ipcMain.handle('get-github-url', async () => {
