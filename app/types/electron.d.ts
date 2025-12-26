@@ -288,6 +288,7 @@ export interface ElectronAPI {
   createPullRequest: (options: { 
     title: string; 
     body?: string; 
+    headBranch?: string;
     baseBranch?: string; 
     draft?: boolean; 
     web?: boolean 

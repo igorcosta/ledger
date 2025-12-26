@@ -89,6 +89,12 @@ export default function App() {
   const [prFilter, setPrFilter] = useState<PRFilter>('open-not-draft')
   const [prSort, setPrSort] = useState<PRSort>('updated')
   
+  // Search state for Radar mode columns
+  const [prSearch, setPrSearch] = useState('')
+  const [localBranchSearch, setLocalBranchSearch] = useState('')
+  const [remoteBranchSearch, setRemoteBranchSearch] = useState('')
+  const [worktreeSearch, setWorktreeSearch] = useState('')
+  
   // Collapsible controls state
   const [prControlsOpen, setPrControlsOpen] = useState(false)
   const [localControlsOpen, setLocalControlsOpen] = useState(false)
@@ -736,15 +742,25 @@ export default function App() {
 
   const localBranches = useMemo(() => {
     const local = branches.filter((b) => !b.isRemote)
-    const filtered = filterBranches(local, localFilter)
+    let filtered = filterBranches(local, localFilter)
+    // Apply search filter
+    if (localBranchSearch.trim()) {
+      const search = localBranchSearch.toLowerCase().trim()
+      filtered = filtered.filter(b => b.name.toLowerCase().includes(search))
+    }
     return sortBranches(filtered, localSort)
-  }, [branches, localFilter, localSort])
+  }, [branches, localFilter, localSort, localBranchSearch])
 
   const remoteBranches = useMemo(() => {
     const remote = branches.filter((b) => b.isRemote)
-    const filtered = filterBranches(remote, remoteFilter)
+    let filtered = filterBranches(remote, remoteFilter)
+    // Apply search filter
+    if (remoteBranchSearch.trim()) {
+      const search = remoteBranchSearch.toLowerCase().trim()
+      filtered = filtered.filter(b => b.name.toLowerCase().includes(search))
+    }
     return sortBranches(filtered, remoteSort)
-  }, [branches, remoteFilter, remoteSort])
+  }, [branches, remoteFilter, remoteSort, remoteBranchSearch])
 
   // Extract unique parent folders from worktrees
   const worktreeParents = useMemo(() => {
@@ -768,18 +784,31 @@ export default function App() {
     return Array.from(parents).sort()
   }, [worktrees, repoPath])
 
-  // Filter worktrees by parent
+  // Filter worktrees by parent and search
   const filteredWorktrees = useMemo(() => {
-    if (worktreeParentFilter === 'all') {
-      return worktrees
+    let filtered = worktrees
+    
+    // Apply parent filter
+    if (worktreeParentFilter !== 'all') {
+      filtered = filtered.filter(wt => {
+        if (worktreeParentFilter === 'main') {
+          return repoPath && wt.path.startsWith(repoPath)
+        }
+        return wt.path.includes(`/${worktreeParentFilter}/`)
+      })
     }
-    return worktrees.filter(wt => {
-      if (worktreeParentFilter === 'main') {
-        return repoPath && wt.path.startsWith(repoPath)
-      }
-      return wt.path.includes(`/${worktreeParentFilter}/`)
-    })
-  }, [worktrees, worktreeParentFilter, repoPath])
+    
+    // Apply search filter
+    if (worktreeSearch.trim()) {
+      const search = worktreeSearch.toLowerCase().trim()
+      filtered = filtered.filter(wt => 
+        wt.displayName.toLowerCase().includes(search) ||
+        (wt.branch && wt.branch.toLowerCase().includes(search))
+      )
+    }
+    
+    return filtered
+  }, [worktrees, worktreeParentFilter, repoPath, worktreeSearch])
 
   // Filter and sort PRs
   const filteredPRs = useMemo(() => {
@@ -796,6 +825,16 @@ export default function App() {
       case 'all':
       default:
         break
+    }
+    
+    // Apply search filter
+    if (prSearch.trim()) {
+      const search = prSearch.toLowerCase().trim()
+      filtered = filtered.filter(pr => 
+        pr.title.toLowerCase().includes(search) ||
+        pr.branch.toLowerCase().includes(search) ||
+        pr.author.toLowerCase().includes(search)
+      )
     }
     
     // Apply sort
@@ -816,7 +855,7 @@ export default function App() {
     }
     
     return filtered
-  }, [pullRequests, prFilter, prSort])
+  }, [pullRequests, prFilter, prSort, prSearch])
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return ''
@@ -998,15 +1037,31 @@ export default function App() {
               </button>
             </div>
           )}
-          <button onClick={selectRepo} className="btn btn-secondary">
-            <span className="btn-icon">📁</span>
-            {repoPath ? 'Change Repo' : 'Select Repository'}
-          </button>
-          {repoPath && (
-            <button onClick={refresh} disabled={loading || switching} className="btn btn-primary">
-              <span className={`btn-icon ${loading || switching ? 'spinning' : ''}`}>↻</span>
-              {loading ? 'Refreshing...' : switching ? 'Switching...' : 'Refresh'}
+          {!repoPath ? (
+            <button onClick={selectRepo} className="btn btn-secondary">
+              <span className="btn-icon">📁</span>
+              Select Repository
             </button>
+          ) : (
+            <div className="view-toggle">
+              <button
+                onClick={selectRepo}
+                className="view-toggle-btn"
+                title="Change Repository"
+              >
+                <span className="view-icon">📁</span>
+                <span className="view-label">Change</span>
+              </button>
+              <button
+                onClick={refresh}
+                disabled={loading || switching}
+                className="view-toggle-btn active"
+                title="Refresh"
+              >
+                <span className={`view-icon ${loading || switching ? 'spinning' : ''}`}>↻</span>
+                <span className="view-label">{loading ? 'Loading' : switching ? 'Switching' : 'Refresh'}</span>
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -1062,7 +1117,17 @@ export default function App() {
             </div>
             {prControlsOpen && (
               <div className="column-controls" onClick={(e) => e.stopPropagation()}>
-                <div className="control-group">
+                <div className="control-row">
+                  <label>Search</label>
+                  <input
+                    type="text"
+                    className="control-search"
+                    placeholder="Title, branch, author..."
+                    value={prSearch}
+                    onChange={(e) => setPrSearch(e.target.value)}
+                  />
+                </div>
+                <div className="control-row">
                   <label>Filter</label>
                   <select 
                     value={prFilter} 
@@ -1074,7 +1139,7 @@ export default function App() {
                     <option value="open-draft">Open + Draft</option>
                   </select>
                 </div>
-                <div className="control-group">
+                <div className="control-row">
                   <label>Sort</label>
                   <select 
                     value={prSort} 
@@ -1097,7 +1162,7 @@ export default function App() {
                 </div>
               ) : filteredPRs.length === 0 ? (
                 <div className="empty-column">
-                  {prFilter !== 'all' ? 'No PRs match filter' : 'No open PRs'}
+                  {prSearch.trim() || prFilter !== 'all' ? 'No PRs match filter' : 'No open PRs'}
                 </div>
               ) : (
                 <ul className="item-list">
@@ -1166,8 +1231,18 @@ export default function App() {
             </div>
             {worktreeControlsOpen && (
               <div className="column-controls" onClick={(e) => e.stopPropagation()}>
-                <div className="control-group">
-                  <label>Parent</label>
+                <div className="control-row">
+                  <label>Search</label>
+                  <input
+                    type="text"
+                    className="control-search"
+                    placeholder="Name or branch..."
+                    value={worktreeSearch}
+                    onChange={(e) => setWorktreeSearch(e.target.value)}
+                  />
+                </div>
+                <div className="control-row">
+                  <label>Filter</label>
                   <select 
                     value={worktreeParentFilter} 
                     onChange={(e) => setWorktreeParentFilter(e.target.value)}
@@ -1184,7 +1259,7 @@ export default function App() {
             <div className="column-content">
               {filteredWorktrees.length === 0 ? (
                 <div className="empty-column">
-                  {worktreeParentFilter !== 'all' ? 'No worktrees match filter' : 'No worktrees found'}
+                  {worktreeSearch.trim() || worktreeParentFilter !== 'all' ? 'No worktrees match filter' : 'No worktrees found'}
                 </div>
               ) : (
                 <ul className="item-list">
@@ -1329,7 +1404,17 @@ export default function App() {
             </div>
             {localControlsOpen && (
               <div className="column-controls" onClick={(e) => e.stopPropagation()}>
-                <div className="control-group">
+                <div className="control-row">
+                  <label>Search</label>
+                  <input
+                    type="text"
+                    className="control-search"
+                    placeholder="Branch name..."
+                    value={localBranchSearch}
+                    onChange={(e) => setLocalBranchSearch(e.target.value)}
+                  />
+                </div>
+                <div className="control-row">
                   <label>Filter</label>
                   <select 
                     value={localFilter} 
@@ -1341,7 +1426,7 @@ export default function App() {
                     <option value="unmerged">Unmerged</option>
                   </select>
                 </div>
-                <div className="control-group">
+                <div className="control-row">
                   <label>Sort</label>
                   <select 
                     value={localSort} 
@@ -1359,7 +1444,7 @@ export default function App() {
             <div className="column-content">
               {localBranches.length === 0 ? (
                 <div className="empty-column">
-                  {localFilter !== 'all' ? 'No branches match filter' : 'No local branches'}
+                  {localBranchSearch.trim() || localFilter !== 'all' ? 'No branches match filter' : 'No local branches'}
                 </div>
               ) : (
                 <ul className="item-list">
@@ -1424,7 +1509,17 @@ export default function App() {
             </div>
             {remoteControlsOpen && (
               <div className="column-controls" onClick={(e) => e.stopPropagation()}>
-                <div className="control-group">
+                <div className="control-row">
+                  <label>Search</label>
+                  <input
+                    type="text"
+                    className="control-search"
+                    placeholder="Branch name..."
+                    value={remoteBranchSearch}
+                    onChange={(e) => setRemoteBranchSearch(e.target.value)}
+                  />
+                </div>
+                <div className="control-row">
                   <label>Filter</label>
                   <select 
                     value={remoteFilter} 
@@ -1435,7 +1530,7 @@ export default function App() {
                     <option value="unmerged">Unmerged</option>
                   </select>
                 </div>
-                <div className="control-group">
+                <div className="control-row">
                   <label>Sort</label>
                   <select 
                     value={remoteSort} 
@@ -1453,7 +1548,7 @@ export default function App() {
             <div className="column-content">
               {remoteBranches.length === 0 ? (
                 <div className="empty-column">
-                  {remoteFilter !== 'all' ? 'No branches match filter' : 'No remote branches'}
+                  {remoteBranchSearch.trim() || remoteFilter !== 'all' ? 'No branches match filter' : 'No remote branches'}
                 </div>
               ) : (
                 <ul className="item-list">
@@ -2281,20 +2376,58 @@ interface SidebarDetailPanelProps {
 function SidebarDetailPanel({ focus, formatRelativeTime, formatDate, currentBranch, switching, onStatusChange, onRefresh, onClearFocus, onCheckoutBranch, onCheckoutRemoteBranch, onCheckoutWorktree }: SidebarDetailPanelProps) {
   const [creatingPR, setCreatingPR] = useState(false);
   const [pushing, setPushing] = useState(false);
+  
+  // PR creation form state
+  const [showPRForm, setShowPRForm] = useState(false);
+  const [prBranch, setPrBranch] = useState('');
+  const [prTitle, setPrTitle] = useState('');
+  const [prBody, setPrBody] = useState('');
+  const [prDraft, setPrDraft] = useState(false);
 
-  const handleCreatePR = async (branchName: string) => {
+  const handleStartPRCreation = (branchName: string) => {
+    // Auto-generate title from branch name
+    const generatedTitle = branchName
+      .replace(/[-_]/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+    setPrBranch(branchName);
+    setPrTitle(generatedTitle);
+    setPrBody('');
+    setPrDraft(false);
+    setShowPRForm(true);
+  };
+
+  const handleCancelPRCreation = () => {
+    setShowPRForm(false);
+    setPrBranch('');
+    setPrTitle('');
+    setPrBody('');
+    setPrDraft(false);
+  };
+
+  const handleSubmitPR = async () => {
+    if (!prTitle.trim() || !prBranch) return;
+    
     setCreatingPR(true);
-    onStatusChange?.({ type: 'info', message: 'Opening PR creation in browser...' });
+    onStatusChange?.({ type: 'info', message: `Creating pull request for ${prBranch}...` });
     
     try {
-      // Use --web flag to open GitHub's PR creation page
       const result = await window.electronAPI.createPullRequest({
-        title: branchName.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-        web: true,
+        title: prTitle.trim(),
+        body: prBody.trim() || undefined,
+        headBranch: prBranch,
+        draft: prDraft,
+        web: false,
       });
       
       if (result.success) {
         onStatusChange?.({ type: 'success', message: result.message });
+        setShowPRForm(false);
+        setPrBranch('');
+        setPrTitle('');
+        setPrBody('');
+        setPrDraft(false);
+        // Refresh to show the new PR in the list
+        onRefresh?.();
       } else {
         onStatusChange?.({ type: 'error', message: result.message });
       }
@@ -2373,42 +2506,112 @@ function SidebarDetailPanel({ focus, formatRelativeTime, formatDate, currentBran
             </div>
           </div>
           
+          {/* PR Creation Form */}
+          {showPRForm && !isMainOrMaster && (
+            <div className="pr-create-form">
+              <div className="pr-form-header">
+                <span className="pr-form-title">Create Pull Request</span>
+                <button 
+                  className="pr-form-close"
+                  onClick={handleCancelPRCreation}
+                  title="Cancel"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="pr-form-field">
+                <label className="pr-form-label">Title</label>
+                <input
+                  type="text"
+                  className="pr-form-input"
+                  value={prTitle}
+                  onChange={(e) => setPrTitle(e.target.value)}
+                  placeholder="Pull request title"
+                  autoFocus
+                />
+              </div>
+              <div className="pr-form-field">
+                <label className="pr-form-label">Description</label>
+                <textarea
+                  className="pr-form-textarea"
+                  value={prBody}
+                  onChange={(e) => setPrBody(e.target.value)}
+                  placeholder="Describe your changes (optional)"
+                  rows={4}
+                />
+              </div>
+              <div className="pr-form-checkbox">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={prDraft}
+                    onChange={(e) => setPrDraft(e.target.checked)}
+                  />
+                  <span>Create as draft</span>
+                </label>
+              </div>
+              <div className="pr-form-actions">
+                <button 
+                  className="btn btn-secondary"
+                  onClick={handleCancelPRCreation}
+                  disabled={creatingPR}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="btn btn-primary"
+                  onClick={handleSubmitPR}
+                  disabled={creatingPR || !prTitle.trim()}
+                >
+                  {creatingPR ? 'Creating...' : 'Create PR'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
-          <div className="detail-actions">
-            {!branch.current && onCheckoutBranch && (
-              <button 
-                className="btn btn-primary"
-                onClick={() => onCheckoutBranch(branch)}
-                disabled={switching}
-              >
-                {switching ? 'Switching...' : 'Checkout'}
-              </button>
-            )}
-            {branch.current && (
-              <button 
-                className="btn btn-primary"
-                onClick={() => handlePush(branch.name)}
-                disabled={pushing}
-              >
-                {pushing ? 'Pushing...' : 'Push to Origin'}
-              </button>
-            )}
-            {branch.current && !isMainOrMaster && (
+          {!showPRForm && (
+            <div className="detail-actions">
+              {!branch.current && onCheckoutBranch && (
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => onCheckoutBranch(branch)}
+                  disabled={switching}
+                >
+                  {switching ? 'Switching...' : 'Checkout'}
+                </button>
+              )}
+              {branch.current && (
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => handlePush(branch.name)}
+                  disabled={pushing}
+                >
+                  {pushing ? 'Pushing...' : 'Push to Origin'}
+                </button>
+              )}
+              {!isMainOrMaster && (
+                <button 
+                  className="btn btn-secondary"
+                  onClick={() => handleStartPRCreation(branch.name)}
+                >
+                  Create Pull Request
+                </button>
+              )}
               <button 
                 className="btn btn-secondary"
-                onClick={() => handleCreatePR(branch.name)}
-                disabled={creatingPR}
+                onClick={() => window.electronAPI.openBranchInGitHub(branch.name)}
               >
-                {creatingPR ? 'Opening...' : 'Create Pull Request'}
+                View on GitHub
               </button>
-            )}
-            <button 
-              className="btn btn-secondary"
-              onClick={() => window.electronAPI.openBranchInGitHub(branch.name)}
-            >
-              View on GitHub
-            </button>
-          </div>
+            </div>
+          )}
+          
+          {!branch.current && (
+            <div className="detail-actions-hint">
+              Double-click to switch to this branch
+            </div>
+          )}
         </div>
       );
     }

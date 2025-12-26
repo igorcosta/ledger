@@ -629,6 +629,7 @@ export async function openPullRequest(url: string): Promise<{ success: boolean; 
 export async function createPullRequest(options: {
   title: string;
   body?: string;
+  headBranch?: string;
   baseBranch?: string;
   draft?: boolean;
   web?: boolean;
@@ -640,10 +641,17 @@ export async function createPullRequest(options: {
   try {
     const args = ['pr', 'create'];
     
-    args.push('--title', `"${options.title.replace(/"/g, '\\"')}"`);
+    // Escape single quotes in title and body for shell
+    const escapeForShell = (str: string) => str.replace(/'/g, "'\\''");
     
-    if (options.body) {
-      args.push('--body', `"${options.body.replace(/"/g, '\\"')}"`);
+    args.push('--title', `'${escapeForShell(options.title)}'`);
+    
+    // Always provide body (required for non-interactive mode)
+    const body = options.body || '';
+    args.push('--body', `'${escapeForShell(body)}'`);
+    
+    if (options.headBranch) {
+      args.push('--head', options.headBranch);
     }
     
     if (options.baseBranch) {
