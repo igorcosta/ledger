@@ -860,11 +860,35 @@ export async function getPRFileDiff(prNumber: number, filePath: string): Promise
   if (!repoPath) return null;
 
   try {
-    const { stdout } = await execAsync(
-      `gh pr diff ${prNumber} -- "${filePath}"`,
-      { cwd: repoPath }
+    // gh pr diff doesn't support file filtering, so get full diff and parse
+    const { stdout: fullDiff } = await execAsync(
+      `gh pr diff ${prNumber}`,
+      { cwd: repoPath, maxBuffer: 10 * 1024 * 1024 } // 10MB buffer for large diffs
     );
-    return stdout;
+    
+    // Parse the unified diff to extract just the file we want
+    const lines = fullDiff.split('\n');
+    let inTargetFile = false;
+    const result: string[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
+      // Check for diff header for a new file
+      if (line.startsWith('diff --git ')) {
+        // Check if this is the file we want
+        // Format: diff --git a/path/to/file b/path/to/file
+        const aPath = line.match(/a\/(.+?) b\//)?.[1];
+        const bPath = line.match(/ b\/(.+)$/)?.[1];
+        inTargetFile = aPath === filePath || bPath === filePath;
+      }
+      
+      if (inTargetFile) {
+        result.push(line);
+      }
+    }
+    
+    return result.length > 0 ? result.join('\n') : null;
   } catch (error) {
     console.error('Error fetching PR file diff:', error);
     return null;
