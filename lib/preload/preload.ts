@@ -61,6 +61,7 @@ const electronAPI = {
   getPRDetail: (prNumber: number) => ipcRenderer.invoke('get-pr-detail', prNumber),
   getPRReviewComments: (prNumber: number) => ipcRenderer.invoke('get-pr-review-comments', prNumber),
   getPRFileDiff: (prNumber: number, filePath: string) => ipcRenderer.invoke('get-pr-file-diff', prNumber, filePath),
+  commentOnPR: (prNumber: number, body: string) => ipcRenderer.invoke('comment-on-pr', prNumber, body),
 }
 
 // Use `contextBridge` APIs to expose APIs to

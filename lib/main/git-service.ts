@@ -967,6 +967,33 @@ export async function getPRFileDiff(prNumber: number, filePath: string): Promise
   }
 }
 
+// Add a comment to a PR
+export async function commentOnPR(prNumber: number, body: string): Promise<{ success: boolean; message: string }> {
+  if (!repoPath) {
+    return { success: false, message: 'No repository selected' };
+  }
+
+  try {
+    // Escape the body for shell
+    const escapedBody = body.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+    
+    await execAsync(
+      `gh pr comment ${prNumber} --body "${escapedBody}"`,
+      { cwd: repoPath }
+    );
+    
+    return { success: true, message: 'Comment added' };
+  } catch (error) {
+    const errorMessage = (error as Error).message;
+    
+    if (errorMessage.includes('not logged')) {
+      return { success: false, message: 'Not logged into GitHub CLI. Run `gh auth login` in terminal.' };
+    }
+    
+    return { success: false, message: errorMessage };
+  }
+}
+
 // Get the GitHub remote URL for the repository
 export async function getGitHubUrl(): Promise<string | null> {
   if (!git) return null;

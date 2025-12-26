@@ -48,6 +48,7 @@ import {
   getPRDetail,
   getPRReviewComments,
   getPRFileDiff,
+  commentOnPR,
 } from './git-service'
 import { getLastRepoPath, saveLastRepoPath } from './settings-service'
 
@@ -419,6 +420,14 @@ app.whenReady().then(() => {
       return await getPRFileDiff(prNumber, filePath);
     } catch (error) {
       return null;
+    }
+  });
+
+  ipcMain.handle('comment-on-pr', async (_, prNumber: number, body: string) => {
+    try {
+      return await commentOnPR(prNumber, body);
+    } catch (error) {
+      return { success: false, message: (error as Error).message };
     }
   });
 

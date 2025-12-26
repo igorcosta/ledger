@@ -331,6 +331,7 @@ export interface ElectronAPI {
   getPRDetail: (prNumber: number) => Promise<PRDetail | null>;
   getPRReviewComments: (prNumber: number) => Promise<PRReviewComment[]>;
   getPRFileDiff: (prNumber: number, filePath: string) => Promise<string | null>;
+  commentOnPR: (prNumber: number, body: string) => Promise<{ success: boolean; message: string }>;
 }
 
 declare global {

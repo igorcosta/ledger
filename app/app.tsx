@@ -3041,27 +3041,57 @@ function PRReviewPanel({ pr, formatRelativeTime }: PRReviewPanelProps) {
   const [fileDiff, setFileDiff] = useState<string | null>(null);
   const [loadingDiff, setLoadingDiff] = useState(false);
   const [showAIComments, setShowAIComments] = useState(true);
+  const [commentText, setCommentText] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentStatus, setCommentStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Load full PR details
-  useEffect(() => {
-    const loadPRDetail = async () => {
-      setLoading(true);
-      try {
-        const [detail, comments] = await Promise.all([
-          window.electronAPI.getPRDetail(pr.number),
-          window.electronAPI.getPRReviewComments(pr.number),
-        ]);
-        setPrDetail(detail);
-        setReviewComments(comments);
-      } catch (error) {
-        console.error('Error loading PR detail:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadPRDetail = async () => {
+    setLoading(true);
+    try {
+      const [detail, comments] = await Promise.all([
+        window.electronAPI.getPRDetail(pr.number),
+        window.electronAPI.getPRReviewComments(pr.number),
+      ]);
+      setPrDetail(detail);
+      setReviewComments(comments);
+    } catch (error) {
+      console.error('Error loading PR detail:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadPRDetail();
   }, [pr.number]);
+
+  // Submit a comment
+  const handleSubmitComment = async () => {
+    if (!commentText.trim() || submittingComment) return;
+    
+    setSubmittingComment(true);
+    setCommentStatus(null);
+    
+    try {
+      const result = await window.electronAPI.commentOnPR(pr.number, commentText.trim());
+      
+      if (result.success) {
+        setCommentText('');
+        setCommentStatus({ type: 'success', message: 'Comment added!' });
+        // Reload PR details to show the new comment
+        await loadPRDetail();
+        // Clear success message after a delay
+        setTimeout(() => setCommentStatus(null), 3000);
+      } else {
+        setCommentStatus({ type: 'error', message: result.message });
+      }
+    } catch (error) {
+      setCommentStatus({ type: 'error', message: (error as Error).message });
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
 
   // Load file diff when selected
   useEffect(() => {
@@ -3115,32 +3145,6 @@ function PRReviewPanel({ pr, formatRelativeTime }: PRReviewPanelProps) {
   const getFileComments = (filePath: string) => {
     return reviewComments.filter(c => c.path === filePath);
   };
-
-  // Handle PR merge
-  const handleMerge = async (method: 'merge' | 'squash' | 'rebase') => {
-    setMerging(true);
-    setShowMergeOptions(false);
-    onStatusChange?.({ type: 'info', message: `Merging PR #${pr.number}...` });
-
-    try {
-      const result = await window.electronAPI.mergePullRequest(pr.number, { method });
-      if (result.success) {
-        onStatusChange?.({ type: 'success', message: result.message });
-        // Refresh the PR list and clear focus since PR is now merged
-        await onRefresh?.();
-        onClearFocus?.();
-      } else {
-        onStatusChange?.({ type: 'error', message: result.message });
-      }
-    } catch (error) {
-      onStatusChange?.({ type: 'error', message: (error as Error).message });
-    } finally {
-      setMerging(false);
-    }
-  };
-
-  // Check if PR can be merged
-  const canMerge = prDetail?.state === 'OPEN';
 
   // Get review state badge
   const getReviewStateBadge = (state: string) => {
@@ -3285,6 +3289,37 @@ function PRReviewPanel({ pr, formatRelativeTime }: PRReviewPanelProps) {
             {filteredComments.length === 0 && filteredReviews.length === 0 && !prDetail.body && (
               <div className="pr-empty">No comments yet</div>
             )}
+
+            {/* Add Comment Form */}
+            <div className="pr-comment-form">
+              <textarea
+                className="pr-comment-input"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Write a comment..."
+                rows={3}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    handleSubmitComment();
+                  }
+                }}
+              />
+              <div className="pr-comment-form-footer">
+                {commentStatus && (
+                  <span className={`pr-comment-status ${commentStatus.type}`}>
+                    {commentStatus.message}
+                  </span>
+                )}
+                <span className="pr-comment-hint">⌘+Enter to submit</span>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleSubmitComment}
+                  disabled={!commentText.trim() || submittingComment}
+                >
+                  {submittingComment ? 'Posting...' : 'Comment'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
