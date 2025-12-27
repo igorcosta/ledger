@@ -688,6 +688,13 @@ export async function createPullRequest(options: {
   }
 
   try {
+    // First, push the branch to ensure it exists on remote
+    const branchToPush = options.headBranch || (await git.revparse(['--abbrev-ref', 'HEAD']))
+    const pushResult = await pushBranch(branchToPush, true)
+    if (!pushResult.success) {
+      return { success: false, message: `Failed to push branch: ${pushResult.message}` }
+    }
+
     const args = ['pr', 'create']
 
     // Escape single quotes in title and body for shell
