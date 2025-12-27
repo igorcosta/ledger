@@ -2247,7 +2247,7 @@ export default function App() {
           {detailVisible && (
             <aside className="focus-detail" style={{ width: detailWidth, minWidth: detailWidth }}>
               {sidebarFocus?.type === 'uncommitted' && workingStatus ? (
-                <StagingPanel workingStatus={workingStatus} onRefresh={refresh} onStatusChange={setStatus} />
+                <StagingPanel workingStatus={workingStatus} currentBranch={currentBranch} onRefresh={refresh} onStatusChange={setStatus} />
               ) : sidebarFocus?.type === 'pr' ? (
                 <PRReviewPanel
                   pr={sidebarFocus.data as PullRequest}
@@ -3100,11 +3100,12 @@ function SidebarDetailPanel({
 
 interface StagingPanelProps {
   workingStatus: WorkingStatus
+  currentBranch: string
   onRefresh: () => Promise<void>
   onStatusChange: (status: StatusMessage | null) => void
 }
 
-function StagingPanel({ workingStatus, onRefresh, onStatusChange }: StagingPanelProps) {
+function StagingPanel({ workingStatus, currentBranch, onRefresh, onStatusChange }: StagingPanelProps) {
   const [selectedFile, setSelectedFile] = useState<UncommittedFile | null>(null)
   const [fileDiff, setFileDiff] = useState<StagingFileDiff | null>(null)
   const [loadingDiff, setLoadingDiff] = useState(false)
@@ -3113,6 +3114,7 @@ function StagingPanel({ workingStatus, onRefresh, onStatusChange }: StagingPanel
   const [isCommitting, setIsCommitting] = useState(false)
   const [behindPrompt, setBehindPrompt] = useState<{ behindCount: number } | null>(null)
   const [isPulling, setIsPulling] = useState(false)
+  const [pushAfterCommit, setPushAfterCommit] = useState(true)
 
   const stagedFiles = workingStatus.files.filter((f) => f.staged)
   const unstagedFiles = workingStatus.files.filter((f) => !f.staged)
@@ -3195,7 +3197,19 @@ function StagingPanel({ workingStatus, onRefresh, onStatusChange }: StagingPanel
         force
       )
       if (result.success) {
-        onStatusChange({ type: 'success', message: result.message })
+        // If push after commit is enabled, push the branch
+        if (pushAfterCommit && currentBranch) {
+          onStatusChange({ type: 'info', message: 'Pushing to remote...' })
+          const pushResult = await window.electronAPI.pushBranch(currentBranch, true)
+          if (pushResult.success) {
+            onStatusChange({ type: 'success', message: `Committed and pushed to ${currentBranch}` })
+          } else {
+            // Commit succeeded but push failed
+            onStatusChange({ type: 'error', message: `Committed, but push failed: ${pushResult.message}` })
+          }
+        } else {
+          onStatusChange({ type: 'success', message: result.message })
+        }
         setCommitMessage('')
         setCommitDescription('')
         setBehindPrompt(null)
@@ -3438,6 +3452,16 @@ function StagingPanel({ workingStatus, onRefresh, onStatusChange }: StagingPanel
           onChange={(e) => setCommitDescription(e.target.value)}
           rows={3}
         />
+        <div className="commit-options">
+          <label className="commit-option-checkbox">
+            <input
+              type="checkbox"
+              checked={pushAfterCommit}
+              onChange={(e) => setPushAfterCommit(e.target.checked)}
+            />
+            <span>Push to <code>{currentBranch || 'remote'}</code> after commit</span>
+          </label>
+        </div>
         {/* Behind Origin Prompt */}
         {behindPrompt && (
           <div className="behind-prompt">
@@ -3477,7 +3501,13 @@ function StagingPanel({ workingStatus, onRefresh, onStatusChange }: StagingPanel
             onClick={() => handleCommit()}
             disabled={!commitMessage.trim() || stagedFiles.length === 0 || isCommitting}
           >
-            {isCommitting ? 'Committing...' : `Commit ${stagedFiles.length} file${stagedFiles.length !== 1 ? 's' : ''}`}
+            {isCommitting
+              ? (pushAfterCommit ? 'Committing & Pushing...' : 'Committing...')
+              : (pushAfterCommit
+                  ? `Commit & Push ${stagedFiles.length} file${stagedFiles.length !== 1 ? 's' : ''}`
+                  : `Commit ${stagedFiles.length} file${stagedFiles.length !== 1 ? 's' : ''}`
+                )
+            }
           </button>
         )}
       </div>
