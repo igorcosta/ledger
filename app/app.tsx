@@ -22,11 +22,11 @@ import type {
 } from './types/electron'
 import './styles/app.css'
 import { useWindowContext } from './components/window'
-import { SettingsModal } from './components/SettingsModal'
-import { initializeTheme, setThemeMode as applyThemeMode, getCurrentThemeMode, loadVSCodeTheme } from './theme'
-import type { ThemeMode } from './theme'
+import { SettingsPanel } from './components/SettingsPanel'
+import { initializeTheme, setThemeMode as applyThemeMode, getCurrentThemeMode, loadVSCodeTheme, type ThemeMode } from './theme'
 
 type ViewMode = 'radar' | 'focus'
+type MainPanelView = 'history' | 'settings'
 
 interface StatusMessage {
   type: 'success' | 'error' | 'info'
@@ -74,12 +74,12 @@ export default function App() {
   const [newBranchName, setNewBranchName] = useState('')
   const [creatingBranch, setCreatingBranch] = useState(false)
   const [githubUrl, setGithubUrl] = useState<string | null>(null)
-  const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [themeMode, setThemeMode] = useState<ThemeMode>('light')
   const { setTitle, setTitlebarActions } = useWindowContext()
 
   // View mode state
   const [viewMode, setViewMode] = useState<ViewMode>('radar')
+  const [mainPanelView, setMainPanelView] = useState<MainPanelView>('history')
 
   // Focus mode state
   const [graphCommits, setGraphCommits] = useState<GraphCommit[]>([])
@@ -266,11 +266,23 @@ export default function App() {
     }
 
     // Always add settings button
+    const isSettingsActive = viewMode === 'focus' && mainPanelView === 'settings'
     actions.push(
       <button
         key="settings"
-        className="panel-toggle-btn"
-        onClick={() => setShowSettingsModal(true)}
+        className={`panel-toggle-btn ${isSettingsActive ? 'active' : ''}`}
+        onClick={() => {
+          if (viewMode === 'radar') {
+            // Switch to Focus mode with Settings panel
+            setViewMode('focus')
+            setMainPanelView('settings')
+            setMainVisible(true)
+          } else {
+            // Toggle between history and settings in Focus mode
+            setMainPanelView(mainPanelView === 'settings' ? 'history' : 'settings')
+            setMainVisible(true)
+          }
+        }}
         title="Settings"
         style={{ cursor: 'pointer' }}
       >
@@ -287,7 +299,7 @@ export default function App() {
     )
 
     setTitlebarActions(actions.length > 0 ? <>{actions}</> : null)
-  }, [repoPath, viewMode, sidebarVisible, mainVisible, detailVisible, setTitlebarActions, setShowSettingsModal])
+  }, [repoPath, viewMode, mainPanelView, sidebarVisible, mainVisible, detailVisible, setTitlebarActions])
 
   // Column drag and drop handlers for Radar view
   const handleColumnDragStart = useCallback((e: React.DragEvent, columnId: string) => {
@@ -2413,97 +2425,107 @@ export default function App() {
             />
           )}
 
-          {/* Main Content: Git Graph + Commit List */}
+          {/* Main Content: Settings Panel OR Git Graph + Commit List */}
           {mainVisible && (
             <div className="focus-main">
-              <div
-                className={`focus-main-header clickable-header ${historyFilterOpen ? 'open' : ''}`}
-                onClick={() => setHistoryFilterOpen(!historyFilterOpen)}
-              >
-                <div className="column-title">
-                  <h2>
-                    <span className="column-icon">◉</span>
-                    History
-                    {currentBranch && <code className="commit-hash branch-badge">{currentBranch}</code>}
-                  </h2>
-                  <button
-                    className={`header-filter-btn ${historyFilterOpen ? 'active' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setHistoryFilterOpen(!historyFilterOpen)
-                    }}
-                    title="Filter"
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              {historyFilterOpen && (
-                <div className="history-filter-panel">
-                  <label className="history-filter-option">
-                    <input
-                      type="checkbox"
-                      checked={showCheckpoints}
-                      onChange={async (e) => {
-                        const newValue = e.target.checked
-                        setShowCheckpoints(newValue)
-                        // Reload commits with new filter
-                        const graphResult = await window.electronAPI.getCommitGraphHistory(100, true, newValue)
-                        setGraphCommits(graphResult)
-                      }}
-                    />
-                    <span>Checkpoints</span>
-                    <span className="history-filter-hint">Show agent checkpoint commits</span>
-                  </label>
-                  <label className="history-filter-option">
-                    <input
-                      type="checkbox"
-                      checked={showGraphLines}
-                      onChange={(e) => setShowGraphLines(e.target.checked)}
-                    />
-                    <span>Graph</span>
-                    <span className="history-filter-hint">Show branch/merge lines</span>
-                  </label>
-                  <label className="history-filter-option">
-                    <input
-                      type="checkbox"
-                      checked={onlyBranchHeads}
-                      onChange={(e) => setOnlyBranchHeads(e.target.checked)}
-                    />
-                    <span>Branch heads only</span>
-                    <span className="history-filter-hint">Latest commit per branch</span>
-                  </label>
-                  <label className="history-filter-option">
-                    <input
-                      type="checkbox"
-                      checked={onlyUnmergedBranches}
-                      onChange={(e) => setOnlyUnmergedBranches(e.target.checked)}
-                    />
-                    <span>Unmerged only</span>
-                    <span className="history-filter-hint">Commits from unmerged branches</span>
-                  </label>
-                </div>
-              )}
-              <div className="git-graph-container">
-                <GitGraph
-                  commits={filteredGraphCommits}
-                  selectedCommit={selectedCommit}
-                  onSelectCommit={handleSelectCommit}
-                  formatRelativeTime={formatRelativeTime}
-                  showGraph={showGraphLines}
+              {mainPanelView === 'settings' ? (
+                <SettingsPanel
+                  themeMode={themeMode}
+                  onThemeChange={handleThemeChange}
+                  onBack={() => setMainPanelView('history')}
                 />
-              </div>
+              ) : (
+                <>
+                  <div
+                    className={`focus-main-header clickable-header ${historyFilterOpen ? 'open' : ''}`}
+                    onClick={() => setHistoryFilterOpen(!historyFilterOpen)}
+                  >
+                    <div className="column-title">
+                      <h2>
+                        <span className="column-icon">◉</span>
+                        History
+                        {currentBranch && <code className="commit-hash branch-badge">{currentBranch}</code>}
+                      </h2>
+                      <button
+                        className={`header-filter-btn ${historyFilterOpen ? 'active' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setHistoryFilterOpen(!historyFilterOpen)
+                        }}
+                        title="Filter"
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  {historyFilterOpen && (
+                    <div className="history-filter-panel">
+                      <label className="history-filter-option">
+                        <input
+                          type="checkbox"
+                          checked={showCheckpoints}
+                          onChange={async (e) => {
+                            const newValue = e.target.checked
+                            setShowCheckpoints(newValue)
+                            // Reload commits with new filter
+                            const graphResult = await window.electronAPI.getCommitGraphHistory(100, true, newValue)
+                            setGraphCommits(graphResult)
+                          }}
+                        />
+                        <span>Checkpoints</span>
+                        <span className="history-filter-hint">Show agent checkpoint commits</span>
+                      </label>
+                      <label className="history-filter-option">
+                        <input
+                          type="checkbox"
+                          checked={showGraphLines}
+                          onChange={(e) => setShowGraphLines(e.target.checked)}
+                        />
+                        <span>Graph</span>
+                        <span className="history-filter-hint">Show branch/merge lines</span>
+                      </label>
+                      <label className="history-filter-option">
+                        <input
+                          type="checkbox"
+                          checked={onlyBranchHeads}
+                          onChange={(e) => setOnlyBranchHeads(e.target.checked)}
+                        />
+                        <span>Branch heads only</span>
+                        <span className="history-filter-hint">Latest commit per branch</span>
+                      </label>
+                      <label className="history-filter-option">
+                        <input
+                          type="checkbox"
+                          checked={onlyUnmergedBranches}
+                          onChange={(e) => setOnlyUnmergedBranches(e.target.checked)}
+                        />
+                        <span>Unmerged only</span>
+                        <span className="history-filter-hint">Commits from unmerged branches</span>
+                      </label>
+                    </div>
+                  )}
+                  <div className="git-graph-container">
+                    <GitGraph
+                      commits={filteredGraphCommits}
+                      selectedCommit={selectedCommit}
+                      onSelectCommit={handleSelectCommit}
+                      formatRelativeTime={formatRelativeTime}
+                      showGraph={showGraphLines}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -4885,13 +4907,6 @@ function StashDetailPanel({
         </div>
       )}
 
-      {/* Settings Modal */}
-      <SettingsModal
-        open={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-        themeMode={themeMode}
-        onThemeChange={handleThemeChange}
-      />
     </div>
   )
 }
