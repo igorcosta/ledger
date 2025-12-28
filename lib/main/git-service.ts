@@ -1044,6 +1044,37 @@ export async function commentOnPR(prNumber: number, body: string): Promise<{ suc
   }
 }
 
+// Approve a PR
+export async function approvePR(prNumber: number, body?: string): Promise<{ success: boolean; message: string }> {
+  if (!repoPath) {
+    return { success: false, message: 'No repository selected' }
+  }
+
+  try {
+    let cmd = `gh pr review ${prNumber} --approve`
+    if (body) {
+      const escapedBody = body.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$')
+      cmd += ` --body "${escapedBody}"`
+    }
+
+    await execAsync(cmd, { cwd: repoPath })
+
+    return { success: true, message: 'PR approved' }
+  } catch (error) {
+    const errorMessage = (error as Error).message
+
+    if (errorMessage.includes('not logged')) {
+      return { success: false, message: 'Not logged into GitHub CLI. Run `gh auth login` in terminal.' }
+    }
+
+    if (errorMessage.includes('already approved')) {
+      return { success: false, message: 'You have already approved this PR' }
+    }
+
+    return { success: false, message: errorMessage }
+  }
+}
+
 // Get the GitHub remote URL for the repository
 export async function getGitHubUrl(): Promise<string | null> {
   if (!git) return null

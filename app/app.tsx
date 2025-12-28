@@ -745,7 +745,8 @@ export default function App() {
           ]
         }
 
-        return [
+        // Different actions based on whether worktree has a branch
+        const actions: MenuItem[] = [
           {
             label: 'Open in Focus',
             action: () => {
@@ -753,18 +754,27 @@ export default function App() {
               handleRadarWorktreeClick(wt)
             },
           },
-          {
+        ]
+
+        if (wt.branch) {
+          // Worktree has a branch - offer to checkout
+          actions.push({
             label: 'Check Out Worktree',
             action: () => handleWorktreeDoubleClick(wt),
-            disabled: !wt.branch || wt.branch === currentBranch || switching,
-          },
-          {
-            label: 'Convert to Branch',
+            disabled: wt.branch === currentBranch || switching,
+          })
+        } else {
+          // Detached HEAD - offer to rescue with Create Branch
+          actions.push({
+            label: 'Create Branch (Rescue)',
             action: () => handleWorktreeConvertToBranch(wt),
             disabled: !hasChanges || switching,
-          },
-          { label: 'Open in Finder', action: () => handleWorktreeOpen(wt) },
-        ]
+          })
+        }
+
+        actions.push({ label: 'Open in Finder', action: () => handleWorktreeOpen(wt) })
+
+        return actions
       }
       case 'local-branch': {
         const branch = contextMenu.data as Branch
@@ -984,7 +994,12 @@ export default function App() {
       case 'local-only':
         return branchList.filter((b) => b.isLocalOnly)
       case 'unmerged':
-        return branchList.filter((b) => !b.isMerged)
+        // Always include master/main even if merged (they're never really "merged away")
+        return branchList.filter((b) => {
+          const baseName = b.name.replace('remotes/', '').replace(/^origin\//, '')
+          const isMainBranch = baseName === 'main' || baseName === 'master'
+          return !b.isMerged || isMainBranch
+        })
       default:
         return branchList
     }
@@ -3983,6 +3998,7 @@ function PRReviewPanel({ pr, formatRelativeTime, onCheckout, switching }: PRRevi
   const [commentText, setCommentText] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
   const [commentStatus, setCommentStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [approvingPR, setApprovingPR] = useState(false)
 
   // Load full PR details
   const loadPRDetail = async () => {
@@ -4029,6 +4045,31 @@ function PRReviewPanel({ pr, formatRelativeTime, onCheckout, switching }: PRRevi
       setCommentStatus({ type: 'error', message: (error as Error).message })
     } finally {
       setSubmittingComment(false)
+    }
+  }
+
+  // Approve PR
+  const handleApprovePR = async () => {
+    if (approvingPR) return
+
+    setApprovingPR(true)
+    setCommentStatus(null)
+
+    try {
+      const result = await window.electronAPI.approvePR(pr.number)
+
+      if (result.success) {
+        setCommentStatus({ type: 'success', message: 'PR approved!' })
+        // Reload PR details to show updated review status
+        await loadPRDetail()
+        setTimeout(() => setCommentStatus(null), 3000)
+      } else {
+        setCommentStatus({ type: 'error', message: result.message })
+      }
+    } catch (error) {
+      setCommentStatus({ type: 'error', message: (error as Error).message })
+    } finally {
+      setApprovingPR(false)
     }
   }
 
@@ -4125,6 +4166,7 @@ function PRReviewPanel({ pr, formatRelativeTime, onCheckout, switching }: PRRevi
     <div className="pr-review-panel">
       {/* Header */}
       <div className="pr-review-header">
+        <div className="detail-type-badge">Pull Request</div>
         <div className="pr-review-title-row">
           <h3 className="pr-review-title">{prDetail.title}</h3>
           {prDetail.reviewDecision && getReviewStateBadge(prDetail.reviewDecision)}
@@ -4142,6 +4184,32 @@ function PRReviewPanel({ pr, formatRelativeTime, onCheckout, switching }: PRRevi
             <span className="diff-deletions">-{prDetail.deletions}</span>
           </span>
         </div>
+      </div>
+
+      {/* Actions */}
+      <div className="detail-actions">
+        {onCheckout && (
+          <button
+            className="btn btn-primary"
+            onClick={() => onCheckout(pr)}
+            disabled={switching}
+          >
+            {switching ? 'Checking out...' : 'Checkout Branch'}
+          </button>
+        )}
+        <button
+          className="btn btn-secondary"
+          onClick={() => window.electronAPI.openPullRequest(pr.url)}
+        >
+          View on GitHub
+        </button>
+        <button
+          className="btn btn-secondary"
+          onClick={handleApprovePR}
+          disabled={approvingPR || prDetail.reviewDecision === 'APPROVED'}
+        >
+          {approvingPR ? 'Approving...' : prDetail.reviewDecision === 'APPROVED' ? '✓ Approved' : 'Approve'}
+        </button>
       </div>
 
       {/* Tabs */}
@@ -4346,20 +4414,6 @@ function PRReviewPanel({ pr, formatRelativeTime, onCheckout, switching }: PRRevi
         )}
       </div>
 
-      {/* Footer with actions */}
-      <div className="pr-review-footer">
-        {onCheckout && (
-          <button className="btn btn-primary" onClick={() => onCheckout(pr)} disabled={switching}>
-            {switching ? 'Checking out...' : 'Checkout'}
-          </button>
-        )}
-        <button
-          className={`btn ${onCheckout ? 'btn-secondary' : 'btn-primary'}`}
-          onClick={() => window.electronAPI.openPullRequest(pr.url)}
-        >
-          Open in GitHub
-        </button>
-      </div>
     </div>
   )
 }
@@ -4536,9 +4590,12 @@ function WorktreeDetailPanel({
     )
   }
 
+  // Detached HEAD = no branch, needs rescue
+  const isDetached = !worktree.branch
+
   return (
     <div className="sidebar-detail-panel">
-      <div className="detail-type-badge">Worktree</div>
+      <div className="detail-type-badge">{isDetached ? 'Detached Worktree' : 'Worktree'}</div>
       <h3 className="detail-title">{worktree.branch || worktree.displayName}</h3>
       {worktree.branch && (
         <div className="detail-subtitle">{worktree.displayName}</div>
@@ -4556,7 +4613,7 @@ function WorktreeDetailPanel({
         </div>
         <div className="detail-meta-item">
           <span className="meta-label">Status</span>
-          <span className="meta-value">{isCurrent ? 'Current' : 'Not checked out'}</span>
+          <span className="meta-value">{isCurrent ? 'Current' : isDetached ? 'Detached HEAD' : 'Not checked out'}</span>
         </div>
         <div className="detail-meta-item">
           <span className="meta-label">Changes</span>
@@ -4579,8 +4636,35 @@ function WorktreeDetailPanel({
         </div>
       </div>
 
-      {/* Actions - matching stash panel layout */}
+      {/* Show WIP callout for worktrees with a branch and uncommitted changes */}
+      {worktree.branch && hasChanges && (
+        <div className="worktree-wip-callout">
+          <div className="wip-header">
+            <span className="wip-icon">✎</span>
+            <span className="wip-title">Uncommitted work on {worktree.branch}</span>
+          </div>
+          <p className="wip-description">
+            This worktree has changes ready to commit. Checkout to continue working, or apply the changes to your current branch.
+          </p>
+        </div>
+      )}
+
+      {/* Show rescue callout for detached worktrees with changes */}
+      {isDetached && hasChanges && (
+        <div className="worktree-rescue-callout">
+          <div className="rescue-header">
+            <span className="rescue-icon">⚠</span>
+            <span className="rescue-title">Orphaned changes (no branch)</span>
+          </div>
+          <p className="rescue-description">
+            This worktree is on a detached HEAD. Use "Create Branch" to rescue these changes into a proper branch.
+          </p>
+        </div>
+      )}
+
+      {/* Actions */}
       <div className="detail-actions worktree-actions">
+        {/* Checkout - only for worktrees with a branch, not current */}
         {!isCurrent && worktree.branch && onCheckoutWorktree && (
           <button
             className="btn btn-primary"
@@ -4590,25 +4674,33 @@ function WorktreeDetailPanel({
             {switching ? 'Checking out...' : 'Checkout'}
           </button>
         )}
+
+        {/* Create Branch - only for detached worktrees (rescue operation) */}
+        {isDetached && (
+          <button
+            className="btn btn-primary"
+            onClick={handleCreateBranch}
+            disabled={actionInProgress || !hasChanges}
+            title={hasChanges ? 'Rescue changes into a new branch' : 'No changes to rescue'}
+          >
+            Create Branch
+          </button>
+        )}
+
+        {/* Apply - available for all worktrees with changes */}
         <button
-          className={`btn ${isCurrent || !worktree.branch ? 'btn-primary' : 'btn-secondary'}`}
+          className="btn btn-secondary"
           onClick={handleApply}
           disabled={actionInProgress || !hasChanges}
           title={hasChanges ? 'Apply changes to main repo' : 'No changes to apply'}
         >
           Apply
         </button>
-        <button
-          className="btn btn-secondary"
-          onClick={handleCreateBranch}
-          disabled={actionInProgress || !hasChanges}
-          title={hasChanges ? 'Create a new branch with these changes' : 'No changes to convert'}
-        >
-          Create Branch
-        </button>
+
         <button className="btn btn-secondary" onClick={handleOpenInFinder} disabled={actionInProgress}>
           Open in Finder
         </button>
+
         {!isCurrent && (
           <button className="btn btn-secondary" onClick={() => handleRemove(false)} disabled={actionInProgress}>
             Remove

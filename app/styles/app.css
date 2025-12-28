@@ -1058,6 +1058,73 @@ body,
   color: var(--text-muted);
 }
 
+/* Worktree WIP callout - uncommitted changes on a branch */
+.worktree-wip-callout {
+  margin: 16px 0;
+  padding: 12px;
+  background: var(--accent-glow);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent);
+}
+
+.wip-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.wip-icon {
+  font-size: 14px;
+}
+
+.wip-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.wip-description {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* Worktree rescue callout - detached HEAD needs rescue */
+.worktree-rescue-callout {
+  margin: 16px 0;
+  padding: 12px;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--warning);
+}
+
+.rescue-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.rescue-icon {
+  font-size: 14px;
+  color: var(--warning);
+}
+
+.rescue-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rescue-description {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 .pr-error {
   display: flex;
   flex-direction: column;
@@ -3094,6 +3161,13 @@ body,
   gap: 6px;
 }
 
+/* PR Panel Actions - add padding since pr-review-panel doesn't have parent padding */
+.pr-review-panel .detail-actions {
+  padding: 16px;
+  margin-top: 0;
+  border-top: none;
+}
+
 /* Tabs */
 .pr-review-tabs {
   display: flex;
@@ -3453,15 +3527,6 @@ body,
 .pr-commit-time {
   font-size: 11px;
   color: var(--text-muted);
-}
-
-/* Footer */
-.pr-review-footer {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-primary);
-  display: flex;
-  justify-content: flex-end;
 }
 
 /* PR Comment Form */

@@ -57,6 +57,7 @@ import {
   getPRReviewComments,
   getPRFileDiff,
   commentOnPR,
+  approvePR,
 } from './git-service'
 import {
   getLastRepoPath,
@@ -470,6 +471,14 @@ app.whenReady().then(() => {
   ipcMain.handle('comment-on-pr', async (_, prNumber: number, body: string) => {
     try {
       return await commentOnPR(prNumber, body)
+    } catch (error) {
+      return { success: false, message: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('approve-pr', async (_, prNumber: number, body?: string) => {
+    try {
+      return await approvePR(prNumber, body)
     } catch (error) {
       return { success: false, message: (error as Error).message }
     }

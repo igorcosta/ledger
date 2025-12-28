@@ -91,31 +91,50 @@ User double-clicks "Cursor 1: AuthController"
 
 Opens the worktree directory in macOS Finder.
 
-### Convert to Branch (Right-click)
+### Create Branch (Rescue for Detached Worktrees)
 
-**Powerful feature**: Takes changes from a worktree and creates a proper branch.
+When a worktree has **no branch checked out** (detached HEAD), AI agents may have done work that's "orphaned"—uncommitted changes with no branch to commit to. The "Create Branch" action rescues this work.
+
+**When it appears**: Only for worktrees with no branch (detached HEAD).
+
+**What it does**:
 
 ```
-Convert "Cursor 1: AuthController" to branch
+Rescue detached worktree "Cursor 1: AuthController"
+    │
+    ├─► Stash any changes in your main repo
     │
     ├─► Detect base branch (main/master)
     │
     ├─► Create new branch from base
-    │       Name: worktree folder name
+    │       Name: derived from worktree folder name
     │
-    ├─► Create patch from worktree changes
-    │       git diff > /tmp/changes.patch
+    ├─► Extract changes from worktree as patch
+    │       git diff HEAD (in worktree)
     │
     ├─► Apply patch to new branch
-    │       git apply /tmp/changes.patch
+    │       git apply --3way
+    │
+    ├─► Copy any untracked files
     │
     ├─► Stage all changes
     │       git add -A
     │
-    └─► Return branch name for commit
+    └─► Switch back to your original branch
 ```
 
-**Use case**: AI agents often work in worktrees. This lets you easily promote their work to a proper branch for review and commit.
+**Result**: You now have a proper branch with all the worktree's changes staged and ready to commit.
+
+**Use case**: AI agents (Cursor, Claude) often work in worktrees on detached HEADs. This lets you rescue their work into a proper branch for review and commit.
+
+### Uncommitted Changes (Worktrees with a Branch)
+
+When a worktree **has a branch checked out** and has uncommitted changes, these are surfaced as "work in progress" on that branch. You can:
+
+- **Checkout** the worktree's branch to continue work there
+- **Apply** the changes to your current branch instead
+
+The "Create Branch" button is hidden for these worktrees since the work already belongs to a branch.
 
 ## Filtering
 
