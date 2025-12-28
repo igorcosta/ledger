@@ -71,6 +71,12 @@ const electronAPI = {
   getPRReviewComments: (prNumber: number) => ipcRenderer.invoke('get-pr-review-comments', prNumber),
   getPRFileDiff: (prNumber: number, filePath: string) => ipcRenderer.invoke('get-pr-file-diff', prNumber, filePath),
   commentOnPR: (prNumber: number, body: string) => ipcRenderer.invoke('comment-on-pr', prNumber, body),
+  // Theme operations
+  getThemeMode: () => ipcRenderer.invoke('get-theme-mode'),
+  setThemeMode: (mode: 'light' | 'dark' | 'custom') => ipcRenderer.invoke('set-theme-mode', mode),
+  getCustomTheme: () => ipcRenderer.invoke('get-custom-theme'),
+  loadVSCodeTheme: () => ipcRenderer.invoke('load-vscode-theme'),
+  clearCustomTheme: () => ipcRenderer.invoke('clear-custom-theme'),
 }
 
 // Use `contextBridge` APIs to expose APIs to

@@ -58,7 +58,16 @@ import {
   getPRFileDiff,
   commentOnPR,
 } from './git-service'
-import { getLastRepoPath, saveLastRepoPath } from './settings-service'
+import {
+  getLastRepoPath,
+  saveLastRepoPath,
+  getThemeMode,
+  saveThemeMode,
+  getCustomTheme,
+  loadVSCodeThemeFile,
+  clearCustomTheme,
+  mapVSCodeThemeToCSS,
+} from './settings-service'
 
 // Check for --repo command line argument (for testing)
 const repoArgIndex = process.argv.findIndex((arg) => arg.startsWith('--repo='))
@@ -463,6 +472,43 @@ app.whenReady().then(() => {
     } catch (error) {
       return { success: false, message: (error as Error).message }
     }
+  })
+
+  // Theme handlers
+  ipcMain.handle('get-theme-mode', () => {
+    return getThemeMode()
+  })
+
+  ipcMain.handle('set-theme-mode', (_, mode: 'light' | 'dark' | 'custom') => {
+    saveThemeMode(mode)
+    return { success: true }
+  })
+
+  ipcMain.handle('get-custom-theme', () => {
+    const theme = getCustomTheme()
+    if (theme) {
+      return {
+        theme,
+        cssVars: mapVSCodeThemeToCSS(theme)
+      }
+    }
+    return null
+  })
+
+  ipcMain.handle('load-vscode-theme', async () => {
+    const theme = await loadVSCodeThemeFile()
+    if (theme) {
+      return {
+        theme,
+        cssVars: mapVSCodeThemeToCSS(theme)
+      }
+    }
+    return null
+  })
+
+  ipcMain.handle('clear-custom-theme', () => {
+    clearCustomTheme()
+    return { success: true }
   })
 
   // Set app user model id for windows
