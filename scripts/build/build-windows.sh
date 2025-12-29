@@ -317,23 +317,24 @@ check_signing_tools() {
 }
 
 # Build the target list string for electron-builder
+# Returns space-separated targets (electron-builder expects this format)
 get_build_targets() {
     local targets=""
 
     if [ "$BUILD_NSIS" = true ]; then
-        targets+="nsis,"
+        targets+="nsis "
     fi
 
     if [ "$BUILD_PORTABLE" = true ]; then
-        targets+="portable,"
+        targets+="portable "
     fi
 
     if [ "$BUILD_MSI" = true ]; then
-        targets+="msi,"
+        targets+="msi "
     fi
 
-    # Remove trailing comma
-    targets="${targets%,}"
+    # Remove trailing space
+    targets="${targets% }"
 
     echo "$targets"
 }

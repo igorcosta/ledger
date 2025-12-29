@@ -340,27 +340,28 @@ install_build_deps() {
 }
 
 # Build the target list string for electron-builder
+# Returns space-separated targets (electron-builder expects this format)
 get_build_targets() {
     local targets=""
 
     if [ "$BUILD_APPIMAGE" = true ]; then
-        targets+="AppImage,"
+        targets+="AppImage "
     fi
 
     if [ "$BUILD_DEB" = true ]; then
-        targets+="deb,"
+        targets+="deb "
     fi
 
     if [ "$BUILD_RPM" = true ]; then
-        targets+="rpm,"
+        targets+="rpm "
     fi
 
     if [ "$BUILD_SNAP" = true ]; then
-        targets+="snap,"
+        targets+="snap "
     fi
 
-    # Remove trailing comma
-    targets="${targets%,}"
+    # Remove trailing space
+    targets="${targets% }"
 
     echo "$targets"
 }
