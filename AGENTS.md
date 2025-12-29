@@ -23,11 +23,12 @@ Ledger is a macOS desktop app for viewing git branches, worktrees, and pull requ
 
 ```
 lib/main/main.ts         # IPC handlers, app lifecycle
-lib/main/git-service.ts  # All git operations (~2600 lines)
+lib/main/git-service.ts  # All git operations (~3300 lines)
 lib/preload/preload.ts   # API exposed to renderer
-app/app.tsx              # Main React component (~4000 lines)
-app/styles/app.css       # All styling
+app/app.tsx              # Main React component (~2600 lines)
+app/styles/app.css       # All styling (~5000 lines)
 app/types/electron.d.ts  # TypeScript types for IPC
+app/components/          # UI components (panels, canvas, window)
 ```
 
 ## Common Tasks
@@ -42,7 +43,13 @@ app/types/electron.d.ts  # TypeScript types for IPC
 
 ### Adding UI elements
 
-All UI is in `app/app.tsx`. Styling in `app/styles/app.css` uses CSS variables for theming.
+Main UI is in `app/app.tsx`. Components are in `app/components/`:
+- `panels/editor/` - Editor panels (BranchDetail, PRReview, Staging, etc.)
+- `panels/viz/` - Visualization panels (GitGraph)
+- `canvas/` - Canvas layout system
+- `window/` - Window chrome (Titlebar, menus)
+
+Styling in `app/styles/app.css` uses CSS variables for theming.
 
 ### Running the app
 
@@ -212,13 +219,12 @@ xcrun notarytool info <submission-id> --keychain-profile "AC_PASSWORD"
 
 ## Areas for Improvement
 
-1. The `app.tsx` file is large (~4000 lines) - could be split into components
-2. The `git-service.ts` file is large (~2600 lines) - could be modularized
-3. No loading skeletons - just "Loading..." text
-4. No keyboard shortcuts yet
-5. PR integration requires `gh` CLI - could add fallback
-6. Only macOS supported currently
-7. React hooks exhaustive-deps warnings (intentional to prevent infinite loops)
+1. The `git-service.ts` file is large (~3300 lines) - could be modularized
+2. No loading skeletons - just "Loading..." text
+3. No keyboard shortcuts yet
+4. PR integration requires `gh` CLI - could add fallback
+5. Only macOS supported currently
+6. React hooks exhaustive-deps warnings (intentional to prevent infinite loops)
 
 ## IPC Naming Convention
 

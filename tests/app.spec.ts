@@ -32,10 +32,9 @@ test.describe('Ledger App - Welcome Screen', () => {
     await expect(page.locator('text=Welcome to Ledger')).toBeVisible()
   })
 
-  test('displays Ledger logo', async () => {
-    const logo = page.locator('.logo')
-    await expect(logo).toBeVisible()
-    await expect(logo).toContainText('Ledger')
+  test('displays welcome icon', async () => {
+    const icon = page.locator('.empty-icon')
+    await expect(icon).toBeVisible()
   })
 
   test('displays app header', async () => {
@@ -115,11 +114,14 @@ test.describe('Ledger App - Main View', () => {
     await expect(page.locator('.remotes-column h2')).toContainText('Remote Branches')
   })
 
-  test('displays filter and sort controls', async () => {
+  test('displays filter and sort controls in columns', async () => {
     test.skip(!repoLoaded, 'Repo did not auto-load')
+    // Click to expand PR controls
+    const prHeader = page.locator('.pr-column .column-header')
+    await prHeader.click()
+    // Now controls should be visible
     const controls = page.locator('.control-select')
     await expect(controls.first()).toBeVisible()
-    await expect(controls).toHaveCount(4)
   })
 
   test('displays Refresh button', async () => {
@@ -129,7 +131,7 @@ test.describe('Ledger App - Main View', () => {
 
   test('displays Change Repo button', async () => {
     test.skip(!repoLoaded, 'Repo did not auto-load')
-    await expect(page.locator('button:has-text("Change Repo")')).toBeVisible()
+    await expect(page.locator('button[title="Change Repository"]')).toBeVisible()
   })
 
   test('displays repo path in header', async () => {

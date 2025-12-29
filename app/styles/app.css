@@ -153,22 +153,6 @@ body,
   gap: 12px;
 }
 
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--text-primary);
-}
-
-.logo-icon {
-  color: var(--accent);
-  font-size: 18px;
-}
-
 .repo-path {
   padding: 4px 10px;
   background: var(--bg-primary);
@@ -1522,13 +1506,12 @@ body,
 
 /* Sidebar */
 .focus-sidebar {
-  width: 220px;
-  min-width: 220px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .sidebar-section {
@@ -1794,7 +1777,9 @@ body,
 
 /* Sidebar Detail Panel */
 .sidebar-detail-panel {
+  flex: 1;
   padding: 16px;
+  overflow-y: auto;
 }
 
 .detail-type-badge {
@@ -2125,7 +2110,7 @@ body,
 .staging-panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
   overflow: hidden;
 }
 
@@ -2934,14 +2919,16 @@ body,
 
 /* Detail Panel */
 .focus-detail {
-  width: 40%;
-  min-width: 300px;
-  max-width: 500px;
   background: var(--bg-primary);
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex-shrink: 0;
+}
+
+.focus-detail.detail-expanded {
+  flex: 1;
 }
 
 .detail-empty,
@@ -3283,7 +3270,7 @@ body,
 .pr-review-panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
   overflow: hidden;
 }
 
@@ -3825,7 +3812,7 @@ body,
 .stash-detail-panel {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
   overflow: hidden;
 }
 

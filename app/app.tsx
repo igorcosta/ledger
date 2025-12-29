@@ -8,17 +8,11 @@ import type {
   PullRequest,
   Commit,
   WorkingStatus,
-  UncommittedFile,
   PRFilter,
   PRSort,
   GraphCommit,
   CommitDiff,
   StashEntry,
-  StagingFileDiff,
-  PRDetail,
-  PRReviewComment,
-  StashFile,
-  BranchDiff,
 } from './types/electron'
 import type {
   ViewMode,
@@ -37,11 +31,7 @@ import { GitGraph } from './components/panels/viz'
 import {
   DiffPanel,
   StagingPanel,
-  BranchDetailPanel,
   PRReviewPanel,
-  WorktreeDetailPanel,
-  StashDetailPanel,
-  CreateWorktreePanel,
   SidebarDetailPanel,
 } from './components/panels/editor'
 import { initializeTheme, setThemeMode as applyThemeMode, getCurrentThemeMode, loadVSCodeTheme, type ThemeMode } from './theme'
@@ -53,7 +43,7 @@ export default function App() {
   const [worktrees, setWorktrees] = useState<Worktree[]>([])
   const [pullRequests, setPullRequests] = useState<PullRequest[]>([])
   const [prError, setPrError] = useState<string | null>(null)
-  const [commits, setCommits] = useState<Commit[]>([])
+  const [_commits, setCommits] = useState<Commit[]>([])
   const [workingStatus, setWorkingStatus] = useState<WorkingStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -183,11 +173,11 @@ export default function App() {
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isResizingSidebar) {
-        const newWidth = Math.max(150, Math.min(400, e.clientX))
+        const newWidth = Math.max(100, e.clientX)
         setSidebarWidth(newWidth)
       }
       if (isResizingDetail) {
-        const newWidth = Math.max(250, Math.min(600, window.innerWidth - e.clientX))
+        const newWidth = Math.max(200, window.innerWidth - e.clientX)
         setDetailWidth(newWidth)
       }
     }
@@ -2572,8 +2562,8 @@ export default function App() {
             </div>
           )}
 
-          {/* Detail Panel Resize Handle */}
-          {detailVisible && (
+          {/* Detail Panel Resize Handle - only show when main is visible */}
+          {detailVisible && mainVisible && (
             <div
               className={`resize-handle resize-handle-detail ${isResizingDetail ? 'active' : ''}`}
               onMouseDown={() => setIsResizingDetail(true)}
@@ -2582,7 +2572,10 @@ export default function App() {
 
           {/* Detail Panel */}
           {detailVisible && (
-            <aside className="focus-detail" style={{ width: detailWidth, minWidth: detailWidth }}>
+            <aside 
+              className={`focus-detail ${!mainVisible ? 'detail-expanded' : ''}`} 
+              style={mainVisible ? { width: detailWidth } : undefined}
+            >
               {sidebarFocus?.type === 'uncommitted' && workingStatus ? (
                 <StagingPanel
                   workingStatus={workingStatus}

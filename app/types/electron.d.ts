@@ -320,6 +320,8 @@ export interface ElectronAPI {
   pullBranch: (remoteBranch: string) => Promise<{ success: boolean; message: string }>
   // Commit history and working status
   getCommitHistory: (limit?: number) => Promise<Commit[]>
+  getCommitHistoryForRef: (ref: string, limit?: number) => Promise<Commit[]>
+  getCommitDetails: (commitHash: string) => Promise<Commit | null>
   getWorkingStatus: () => Promise<WorkingStatus>
   // Reset operations
   resetToCommit: (commitHash: string, mode: 'soft' | 'mixed' | 'hard') => Promise<CheckoutResult>

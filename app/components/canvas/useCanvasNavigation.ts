@@ -85,7 +85,6 @@ export function useCanvasNavigation(
     hasEditorSlot,
     setActiveCanvas,
     findCanvasWithEditor,
-    activeCanvas,
   } = useCanvas()
 
   /**
