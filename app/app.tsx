@@ -537,6 +537,8 @@ export default function App() {
   // PR context menu actions
   const handlePRCheckout = async (pr: PullRequest) => {
     closeContextMenu()
+    if (switching) return
+
     setSwitching(true)
     setStatus({ type: 'info', message: `Checking out ${pr.branch}...` })
 
