@@ -795,12 +795,12 @@ body,
 /* UI "selected" state - focused in editor, background only, no border */
 .item.selected,
 .commit-item.selected {
-  background: var(--bg-secondary);
+  background: var(--accent-glow);
 }
 
 .item.selected:hover,
 .commit-item.selected:hover {
-  background: var(--bg-tertiary);
+  background: var(--accent-glow);
 }
 
 /* Combined: item is both domain-active AND UI-selected */
@@ -1760,13 +1760,13 @@ body,
   margin-left: auto;
 }
 
-/* UI "selected" state for sidebar - background only, subtle */
+/* UI "selected" state for sidebar - background only, no border */
 .sidebar-item.selected {
-  background: var(--bg-secondary);
+  background: var(--accent-glow);
 }
 
 .sidebar-item.selected:hover {
-  background: var(--bg-tertiary);
+  background: var(--accent-glow);
 }
 
 /* Domain "active" state for sidebar - current branch, etc. */
