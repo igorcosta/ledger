@@ -1503,16 +1503,12 @@ export default function App() {
     } else if (focusType && data) {
       // Sidebar focus - set sidebarFocus
       const newFocus = { type: focusType, data: data as SidebarFocus['data'] }
-      // Only update if different to avoid infinite loop
-      if (!sidebarFocus || sidebarFocus.type !== focusType || 
-          JSON.stringify(sidebarFocus.data) !== JSON.stringify(data)) {
-        setSelectedCommit(null)
-        setCommitDiff(null)
-        setSidebarFocus(newFocus)
-      }
+      setSelectedCommit(null)
+      setCommitDiff(null)
+      setSidebarFocus(newFocus)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentEditorEntry?.panel, currentEditorEntry?.timestamp])
+  }, [canvasState.editorState.historyIndex])
 
   // Filter graph commits based on history panel filters
   const filteredGraphCommits = useMemo(() => {
