@@ -3013,6 +3013,75 @@ body,
   overflow: hidden;
 }
 
+/* Commit title styling - allow multi-line for long messages */
+.diff-panel .detail-title.commit-title {
+  font-size: 14px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Inline diff stats within meta grid */
+.diff-stats-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Commit branch section - full width, clickable */
+.commit-branch-section {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.commit-branch-section .meta-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.commit-branch-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.commit-branch-link:hover {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+.commit-branch-link .branch-icon {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.commit-branch-link .branch-count {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+/* Legacy styles - kept for backward compat */
 .diff-commit-header {
   padding: 12px 14px;
   background: var(--bg-secondary);

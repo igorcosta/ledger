@@ -2808,7 +2808,19 @@ export default function App() {
               ) : loadingDiff ? (
                 <div className="detail-loading">Loading diff...</div>
               ) : commitDiff ? (
-                <DiffPanel diff={commitDiff} formatRelativeTime={formatRelativeTime} />
+                <DiffPanel 
+                  diff={commitDiff} 
+                  selectedCommit={selectedCommit}
+                  formatRelativeTime={formatRelativeTime} 
+                  branches={branches}
+                  onBranchClick={(branchName) => {
+                    // Find the branch and focus it
+                    const branch = branches.find((b) => b.name === branchName)
+                    if (branch) {
+                      handleSidebarFocus(branch.isRemote ? 'remote' : 'branch', branch)
+                    }
+                  }}
+                />
               ) : (
                 <div className="detail-error">Could not load diff</div>
               )}
