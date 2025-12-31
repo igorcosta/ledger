@@ -1,15 +1,15 @@
 /**
- * UnifiedList - Combined list panel for Focus mode sidebar
+ * Sidebar - Focus mode sidebar panel
  * 
- * Shows all item types (PRs, branches, worktrees, stashes) in collapsible sections.
- * This is the Focus mode sidebar - a compact view of everything.
+ * Shows all items (PRs, branches, worktrees, stashes) in collapsible sections.
+ * Provides a compact overview with search filtering.
  */
 
 import { useState, useMemo, useCallback } from 'react'
 import type { PullRequest, Branch, Worktree, StashEntry } from '../../../types/electron'
 import type { Column } from '../../../types/app-types'
 
-export interface UnifiedListProps {
+export interface SidebarProps {
   column?: Column
   // Data
   prs: PullRequest[]
@@ -46,7 +46,7 @@ interface SectionState {
   stashes: boolean
 }
 
-export function UnifiedList({
+export function Sidebar({
   column,
   prs,
   branches,
@@ -69,7 +69,7 @@ export function UnifiedList({
   onDoubleClickStash,
   onContextMenuStash,
   formatRelativeTime,
-}: UnifiedListProps) {
+}: SidebarProps) {
   // Section expanded state
   const [sections, setSections] = useState<SectionState>({
     prs: true,
@@ -134,9 +134,9 @@ export function UnifiedList({
   const label = column?.label || 'All Items'
 
   return (
-    <div className="unified-list-panel">
+    <div className="sidebar-panel">
       {/* Header */}
-      <div className="unified-list-header">
+      <div className="sidebar-header">
         <h2>
           <span className="column-icon">{icon}</span>
           {label}
@@ -144,7 +144,7 @@ export function UnifiedList({
       </div>
 
       {/* Search */}
-      <div className="unified-list-search">
+      <div className="sidebar-search">
         <input
           type="text"
           placeholder="Filter..."
@@ -155,11 +155,11 @@ export function UnifiedList({
       </div>
 
       {/* Sections */}
-      <div className="unified-list-sections">
+      <div className="sidebar-sections">
         {/* PRs Section */}
-        <div className="unified-list-section">
+        <div className="sidebar-section">
           <button
-            className={`unified-list-section-header ${sections.prs ? 'open' : ''}`}
+            className={`sidebar-section-header ${sections.prs ? 'open' : ''}`}
             onClick={() => toggleSection('prs')}
           >
             <span className="section-icon">⬡</span>
@@ -168,11 +168,11 @@ export function UnifiedList({
             <span className="section-chevron">{sections.prs ? '▾' : '▸'}</span>
           </button>
           {sections.prs && (
-            <ul className="unified-list-items">
+            <ul className="sidebar-items">
               {filteredPRs.map((pr) => (
                 <li
                   key={pr.number}
-                  className={`unified-list-item ${selectedPR?.number === pr.number ? 'selected' : ''}`}
+                  className={`sidebar-item ${selectedPR?.number === pr.number ? 'selected' : ''}`}
                   onClick={() => onSelectPR?.(pr)}
                   onDoubleClick={() => onDoubleClickPR?.(pr)}
                   onContextMenu={(e) => onContextMenuPR?.(e, pr)}
@@ -182,16 +182,16 @@ export function UnifiedList({
                 </li>
               ))}
               {filteredPRs.length === 0 && (
-                <li className="unified-list-empty">No PRs</li>
+                <li className="sidebar-empty">No PRs</li>
               )}
             </ul>
           )}
         </div>
 
         {/* Branches Section */}
-        <div className="unified-list-section">
+        <div className="sidebar-section">
           <button
-            className={`unified-list-section-header ${sections.branches ? 'open' : ''}`}
+            className={`sidebar-section-header ${sections.branches ? 'open' : ''}`}
             onClick={() => toggleSection('branches')}
           >
             <span className="section-icon">⎇</span>
@@ -200,11 +200,11 @@ export function UnifiedList({
             <span className="section-chevron">{sections.branches ? '▾' : '▸'}</span>
           </button>
           {sections.branches && (
-            <ul className="unified-list-items">
+            <ul className="sidebar-items">
               {filteredLocalBranches.map((branch) => (
                 <li
                   key={branch.name}
-                  className={`unified-list-item ${selectedBranch?.name === branch.name && !selectedBranch?.isRemote ? 'selected' : ''}`}
+                  className={`sidebar-item ${selectedBranch?.name === branch.name && !selectedBranch?.isRemote ? 'selected' : ''}`}
                   onClick={() => onSelectBranch?.(branch)}
                   onDoubleClick={() => onDoubleClickBranch?.(branch)}
                   onContextMenu={(e) => onContextMenuBranch?.(e, branch)}
@@ -214,16 +214,16 @@ export function UnifiedList({
                 </li>
               ))}
               {filteredLocalBranches.length === 0 && (
-                <li className="unified-list-empty">No branches</li>
+                <li className="sidebar-empty">No branches</li>
               )}
             </ul>
           )}
         </div>
 
         {/* Remotes Section */}
-        <div className="unified-list-section">
+        <div className="sidebar-section">
           <button
-            className={`unified-list-section-header ${sections.remotes ? 'open' : ''}`}
+            className={`sidebar-section-header ${sections.remotes ? 'open' : ''}`}
             onClick={() => toggleSection('remotes')}
           >
             <span className="section-icon">◈</span>
@@ -232,11 +232,11 @@ export function UnifiedList({
             <span className="section-chevron">{sections.remotes ? '▾' : '▸'}</span>
           </button>
           {sections.remotes && (
-            <ul className="unified-list-items">
+            <ul className="sidebar-items">
               {filteredRemoteBranches.map((branch) => (
                 <li
                   key={branch.name}
-                  className={`unified-list-item ${selectedBranch?.name === branch.name && selectedBranch?.isRemote ? 'selected' : ''}`}
+                  className={`sidebar-item ${selectedBranch?.name === branch.name && selectedBranch?.isRemote ? 'selected' : ''}`}
                   onClick={() => onSelectBranch?.(branch)}
                   onDoubleClick={() => onDoubleClickBranch?.(branch)}
                   onContextMenu={(e) => onContextMenuBranch?.(e, branch)}
@@ -245,16 +245,16 @@ export function UnifiedList({
                 </li>
               ))}
               {filteredRemoteBranches.length === 0 && (
-                <li className="unified-list-empty">No remotes</li>
+                <li className="sidebar-empty">No remotes</li>
               )}
             </ul>
           )}
         </div>
 
         {/* Worktrees Section */}
-        <div className="unified-list-section">
+        <div className="sidebar-section">
           <button
-            className={`unified-list-section-header ${sections.worktrees ? 'open' : ''}`}
+            className={`sidebar-section-header ${sections.worktrees ? 'open' : ''}`}
             onClick={() => toggleSection('worktrees')}
           >
             <span className="section-icon">⊙</span>
@@ -263,11 +263,11 @@ export function UnifiedList({
             <span className="section-chevron">{sections.worktrees ? '▾' : '▸'}</span>
           </button>
           {sections.worktrees && (
-            <ul className="unified-list-items">
+            <ul className="sidebar-items">
               {filteredWorktrees.map((wt) => (
                 <li
                   key={wt.path}
-                  className={`unified-list-item ${selectedWorktree?.path === wt.path ? 'selected' : ''}`}
+                  className={`sidebar-item ${selectedWorktree?.path === wt.path ? 'selected' : ''}`}
                   onClick={() => onSelectWorktree?.(wt)}
                   onDoubleClick={() => onDoubleClickWorktree?.(wt)}
                   onContextMenu={(e) => onContextMenuWorktree?.(e, wt)}
@@ -277,16 +277,16 @@ export function UnifiedList({
                 </li>
               ))}
               {filteredWorktrees.length === 0 && (
-                <li className="unified-list-empty">No worktrees</li>
+                <li className="sidebar-empty">No worktrees</li>
               )}
             </ul>
           )}
         </div>
 
         {/* Stashes Section */}
-        <div className="unified-list-section">
+        <div className="sidebar-section">
           <button
-            className={`unified-list-section-header ${sections.stashes ? 'open' : ''}`}
+            className={`sidebar-section-header ${sections.stashes ? 'open' : ''}`}
             onClick={() => toggleSection('stashes')}
           >
             <span className="section-icon">⊡</span>
@@ -295,11 +295,11 @@ export function UnifiedList({
             <span className="section-chevron">{sections.stashes ? '▾' : '▸'}</span>
           </button>
           {sections.stashes && (
-            <ul className="unified-list-items">
+            <ul className="sidebar-items">
               {filteredStashes.map((stash, index) => (
                 <li
                   key={stash.index ?? index}
-                  className={`unified-list-item ${selectedStash?.index === stash.index ? 'selected' : ''}`}
+                  className={`sidebar-item ${selectedStash?.index === stash.index ? 'selected' : ''}`}
                   onClick={() => onSelectStash?.(stash)}
                   onDoubleClick={() => onDoubleClickStash?.(stash)}
                   onContextMenu={(e) => onContextMenuStash?.(e, stash)}
@@ -311,7 +311,7 @@ export function UnifiedList({
                 </li>
               ))}
               {filteredStashes.length === 0 && (
-                <li className="unified-list-empty">No stashes</li>
+                <li className="sidebar-empty">No stashes</li>
               )}
             </ul>
           )}

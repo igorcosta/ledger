@@ -12,9 +12,7 @@ import type {
   StashEntry,
 } from './electron'
 
-// View modes for the app layout
-// NOTE: ViewMode is deprecated - use activeCanvasId from CanvasContext instead
-// Kept for backwards compatibility during migration
+// Canvas identifiers (matches canvas IDs in CanvasContext)
 export type ViewMode = 'radar' | 'focus' | 'graph'
 export type MainPanelView = 'history' | 'settings'
 
@@ -68,7 +66,7 @@ export type ListPanelType =
   | 'worktree-list'
   | 'stash-list'
   | 'commit-list'
-  | 'unified-list'
+  | 'sidebar'
 
 export type EditorPanelType =
   | 'pr-detail'

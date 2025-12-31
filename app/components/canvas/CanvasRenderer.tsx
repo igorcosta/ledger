@@ -1,14 +1,14 @@
 /**
- * CanvasRenderer - The unified canvas rendering system
+ * CanvasRenderer - Main canvas rendering component
  * 
- * This is the single entry point for rendering ANY canvas (preset or user-created).
- * It takes all available data and renders the appropriate panels based on canvas config.
+ * Single entry point for rendering any canvas (preset or user-created).
+ * Takes data and handlers, renders panels based on canvas configuration.
  * 
- * Design principles:
+ * Design:
  * - One component renders all canvases
  * - Panels are self-contained and reusable
  * - Data flows down, events flow up
- * - Canvas config determines layout, not code
+ * - Canvas config determines layout
  */
 
 import { useCallback, type ReactNode } from 'react'
@@ -27,7 +27,7 @@ import { Canvas } from './Canvas'
 import { EditorSlot } from './EditorSlot'
 
 // Import panels
-import { PRList, BranchList, WorktreeList, StashList, UnifiedList } from '../panels/list'
+import { PRList, BranchList, WorktreeList, StashList, Sidebar } from '../panels/list'
 import { GitGraph } from '../panels/viz'
 
 // ========================================
@@ -234,9 +234,9 @@ export function CanvasRenderer({
             </div>
           )
 
-        case 'unified-list':
+        case 'sidebar':
           return (
-            <UnifiedList
+            <Sidebar
               column={column}
               prs={data.prs}
               branches={data.branches}

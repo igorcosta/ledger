@@ -27,7 +27,7 @@ export type { ResizeHandleProps } from './ResizeHandle'
 export { EditorSlot } from './EditorSlot'
 export type { EditorSlotProps } from './EditorSlot'
 
-// Unified canvas renderer
+// Canvas renderer
 export { CanvasRenderer } from './CanvasRenderer'
 export type {
   CanvasRendererProps,

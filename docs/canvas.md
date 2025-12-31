@@ -32,7 +32,7 @@ app.tsx
 | `BranchList.tsx` | Local/remote branches |
 | `WorktreeList.tsx` | Worktrees with parent filtering |
 | `StashList.tsx` | Stash entries |
-| `UnifiedList.tsx` | All items in collapsible sections |
+| `Sidebar.tsx` | All items in collapsible sections |
 | `ListPanelHeader.tsx` | Shared header component |
 
 ### Viz Panels (`app/components/panels/viz/`)
@@ -45,7 +45,7 @@ app.tsx
 
 ```typescript
 RADAR_CANVAS  // 5 list columns: stashes, prs, worktrees, branches, remotes
-FOCUS_CANVAS  // unified-list + git-graph + editor
+FOCUS_CANVAS  // sidebar + git-graph + editor
 GRAPH_CANVAS  // git-graph only
 ```
 
@@ -125,8 +125,7 @@ Panels
 **Deleted files:**
 - Old inline Radar/Focus JSX
 - `PanelRenderer.tsx` → `CanvasRenderer.tsx`
-- `CanvasSwitcher.tsx` (unused)
-- `useCanvasPersistence.ts` (unused)
-- `types.ts` (unused)
+- `CanvasSwitcher.tsx`, `useCanvasPersistence.ts`, `types.ts` (unused)
 
-**Net change**: 21 files, +231 lines (with modular architecture)
+**Renamed:**
+- `UnifiedList.tsx` → `Sidebar.tsx`

@@ -44,7 +44,7 @@ export const FOCUS_CANVAS: Canvas = {
   icon: '🎯',
   isPreset: true,
   columns: [
-    { id: 'focus-list', slotType: 'list', panel: 'unified-list', width: 220, minWidth: 180, label: 'All', icon: '☰', collapsible: true },
+    { id: 'focus-sidebar', slotType: 'list', panel: 'sidebar', width: 220, minWidth: 180, label: 'All', icon: '☰', collapsible: true },
     { id: 'focus-viz', slotType: 'viz', panel: 'git-graph', width: 'flex', minWidth: 300, label: 'History', icon: '◉', collapsible: true },
     { id: 'focus-editor', slotType: 'editor', panel: 'empty', width: 400, minWidth: 300, label: 'Editor', icon: '◇', collapsible: true },
   ],

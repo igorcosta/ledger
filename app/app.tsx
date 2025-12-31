@@ -91,7 +91,7 @@ export default function App() {
     }
   }, [radarHasEditor, radarCanvas, removeColumn, addColumn])
 
-  // View mode - derived from active canvas (legacy compat for header toggle)
+  // Current canvas mode for titlebar button styling
   const viewMode = canvasState.activeCanvasId as ViewMode
   const [mainPanelView, setMainPanelView] = useState<MainPanelView>('history')
 
