@@ -5368,6 +5368,63 @@ body,
   flex-direction: column;
 }
 
+/* Canvas column drag handle */
+.canvas-column-drag-handle {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: grab;
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease;
+  z-index: 10;
+  letter-spacing: -2px;
+  user-select: none;
+}
+
+.canvas-column:hover .canvas-column-drag-handle {
+  opacity: 0.6;
+}
+
+.canvas-column-drag-handle:hover {
+  opacity: 1 !important;
+  color: var(--accent);
+}
+
+.canvas-column-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Canvas column drag states */
+.canvas-column.dragging {
+  opacity: 0.5;
+  transform: scale(0.98);
+}
+
+.canvas-column.drag-over {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.canvas-column.drag-over::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(91, 155, 213, 0.08);
+  pointer-events: none;
+  z-index: 5;
+}
+
 /* Slot type styling */
 .canvas-column[data-slot="list"] {
   background: var(--bg-secondary);

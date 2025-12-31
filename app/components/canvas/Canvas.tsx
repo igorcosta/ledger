@@ -3,11 +3,12 @@
  *
  * Handles:
  * - Column layout and sizing
- * - Drag-and-drop reordering (future)
+ * - Column visibility (filters out columns with visible: false)
+ * - Drag-and-drop reordering
  * - Delegating to slot-specific renderers
  */
 
-import { type ReactNode } from 'react'
+import { useState, useCallback, useMemo, type ReactNode } from 'react'
 import type { Canvas as CanvasType, Column as ColumnType } from '../../types/app-types'
 import { Column } from './Column'
 
@@ -29,15 +30,54 @@ export function Canvas({
   renderEditorSlot,
   renderVizSlot,
   onResizeColumn,
+  onReorderColumns,
 }: CanvasProps) {
+  // Drag state
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  // Filter to visible columns only
+  const visibleColumns = useMemo(
+    () => canvas.columns.filter((col) => col.visible !== false),
+    [canvas.columns]
+  )
+
+  // Drag handlers
+  const handleDragStart = useCallback((index: number) => {
+    setDraggingIndex(index)
+  }, [])
+
+  const handleDragOver = useCallback((index: number) => {
+    setDragOverIndex(index)
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    if (draggingIndex !== null && dragOverIndex !== null && draggingIndex !== dragOverIndex) {
+      onReorderColumns?.(draggingIndex, dragOverIndex)
+    }
+    setDraggingIndex(null)
+    setDragOverIndex(null)
+  }, [draggingIndex, dragOverIndex, onReorderColumns])
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverIndex(null)
+  }, [])
+
   return (
     <div className="canvas-layout" data-canvas-id={canvas.id}>
-      {canvas.columns.map((column, index) => (
+      {visibleColumns.map((column, index) => (
         <Column
           key={column.id}
           column={column}
-          isLast={index === canvas.columns.length - 1}
+          index={index}
+          isLast={index === visibleColumns.length - 1}
+          isDragging={draggingIndex === index}
+          isDragOver={dragOverIndex === index}
           onResize={onResizeColumn ? (width) => onResizeColumn(column.id, width) : undefined}
+          onDragStart={onReorderColumns ? () => handleDragStart(index) : undefined}
+          onDragOver={onReorderColumns ? () => handleDragOver(index) : undefined}
+          onDragEnd={onReorderColumns ? handleDragEnd : undefined}
+          onDragLeave={onReorderColumns ? handleDragLeave : undefined}
         >
           {column.slotType === 'list' && renderListSlot?.(column)}
           {column.slotType === 'editor' && renderEditorSlot?.(column)}

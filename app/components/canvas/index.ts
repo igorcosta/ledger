@@ -30,6 +30,10 @@ export type { EditorSlotProps } from './EditorSlot'
 export { CanvasSwitcher } from './CanvasSwitcher'
 export type { CanvasSwitcherProps } from './CanvasSwitcher'
 
+// Panel rendering
+export { renderListPanel, renderVizPanel, renderEditorPanel } from './PanelRenderer'
+export type { ListPanelData, VizPanelData, EditorPanelData } from './PanelRenderer'
+
 // Navigation hook
 export { useCanvasNavigation } from './useCanvasNavigation'
 export type { UseCanvasNavigationOptions, CanvasNavigationResult } from './useCanvasNavigation'
