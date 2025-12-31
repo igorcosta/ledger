@@ -18,6 +18,7 @@ export interface ColumnProps {
   children?: ReactNode
   index?: number
   isLast?: boolean
+  fillRemaining?: boolean  // Force flex behavior when no flex column exists
   isDragging?: boolean
   isDragOver?: boolean
   onResize?: (width: number) => void
@@ -32,6 +33,7 @@ export function Column({
   children,
   index: _index,
   isLast,
+  fillRemaining,
   isDragging,
   isDragOver,
   onResize,
@@ -85,10 +87,12 @@ export function Column({
 
   // Calculate style based on width configuration
   const style: React.CSSProperties = {}
-  if (column.width === 'flex') {
+  if (column.width === 'flex' || fillRemaining) {
+    // Flex column fills remaining space
     style.flex = 1
     style.minWidth = column.minWidth || 100
   } else {
+    // Fixed width column
     style.width = column.width
     style.flexShrink = 0
     style.minWidth = column.minWidth || 100

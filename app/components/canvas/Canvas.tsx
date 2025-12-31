@@ -41,6 +41,9 @@ export function Canvas({
     () => canvas.columns.filter((col) => col.visible !== false),
     [canvas.columns]
   )
+  
+  // Check if any visible column is flex
+  const hasFlexColumn = visibleColumns.some((col) => col.width === 'flex')
 
   // Drag handlers
   const handleDragStart = useCallback((index: number) => {
@@ -65,25 +68,32 @@ export function Canvas({
 
   return (
     <div className="canvas-layout" data-canvas-id={canvas.id}>
-      {visibleColumns.map((column, index) => (
-        <Column
-          key={column.id}
-          column={column}
-          index={index}
-          isLast={index === visibleColumns.length - 1}
-          isDragging={draggingIndex === index}
-          isDragOver={dragOverIndex === index}
-          onResize={onResizeColumn ? (width) => onResizeColumn(column.id, width) : undefined}
-          onDragStart={onReorderColumns ? () => handleDragStart(index) : undefined}
-          onDragOver={onReorderColumns ? () => handleDragOver(index) : undefined}
-          onDragEnd={onReorderColumns ? handleDragEnd : undefined}
-          onDragLeave={onReorderColumns ? handleDragLeave : undefined}
-        >
-          {column.slotType === 'list' && renderListSlot?.(column)}
-          {column.slotType === 'editor' && renderEditorSlot?.(column)}
-          {column.slotType === 'viz' && renderVizSlot?.(column)}
-        </Column>
-      ))}
+      {visibleColumns.map((column, index) => {
+        const isLast = index === visibleColumns.length - 1
+        // If no flex column exists, make last column fill remaining space
+        const fillRemaining = !hasFlexColumn && isLast
+        
+        return (
+          <Column
+            key={column.id}
+            column={column}
+            index={index}
+            isLast={isLast}
+            fillRemaining={fillRemaining}
+            isDragging={draggingIndex === index}
+            isDragOver={dragOverIndex === index}
+            onResize={onResizeColumn ? (width) => onResizeColumn(column.id, width) : undefined}
+            onDragStart={onReorderColumns ? () => handleDragStart(index) : undefined}
+            onDragOver={onReorderColumns ? () => handleDragOver(index) : undefined}
+            onDragEnd={onReorderColumns ? handleDragEnd : undefined}
+            onDragLeave={onReorderColumns ? handleDragLeave : undefined}
+          >
+            {column.slotType === 'list' && renderListSlot?.(column)}
+            {column.slotType === 'editor' && renderEditorSlot?.(column)}
+            {column.slotType === 'viz' && renderVizSlot?.(column)}
+          </Column>
+        )
+      })}
     </div>
   )
 }
