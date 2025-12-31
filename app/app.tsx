@@ -1966,8 +1966,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Content - Canvas Renderer for new canvas presets */}
-      {repoPath && !error && viewMode !== 'radar' && viewMode !== 'focus' && (
+      {/* Main Content - Canvas Renderer for all canvases */}
+      {repoPath && !error && viewMode !== 'focus' && (
         <main className="ledger-content canvas-mode">
           <CanvasRenderer
             data={canvasData}
@@ -1978,8 +1978,8 @@ export default function App() {
         </main>
       )}
 
-      {/* Main Content - Radar Mode (legacy, to be migrated) */}
-      {repoPath && !error && viewMode === 'radar' && (
+      {/* Main Content - Radar Mode (OLD - keeping for reference during migration) */}
+      {false && repoPath && !error && viewMode === 'radar' && (
         <main className="ledger-content five-columns">
           {/* Stashes Column */}
           <section

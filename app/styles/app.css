@@ -5375,6 +5375,13 @@ body,
   flex-direction: column;
 }
 
+/* List panel wrapper (inside canvas column) */
+.list-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 /* Canvas column drag handle */
 .canvas-column-drag-handle {
   position: absolute;
