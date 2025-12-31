@@ -118,14 +118,25 @@ CanvasRenderer
 Panels
 ```
 
-## Migration Results
+## File Structure
 
-**app/app.tsx**: 3475 → 1461 lines (-58%)
-
-**Deleted files:**
-- Old inline Radar/Focus JSX
-- `PanelRenderer.tsx` → `CanvasRenderer.tsx`
-- `CanvasSwitcher.tsx`, `useCanvasPersistence.ts`, `types.ts` (unused)
-
-**Renamed:**
-- `UnifiedList.tsx` → `Sidebar.tsx`
+```
+app/components/
+├── canvas/
+│   ├── Canvas.tsx           # Column layout container
+│   ├── CanvasContext.tsx    # State, reducer, presets
+│   ├── CanvasRenderer.tsx   # Main entry point
+│   ├── Column.tsx           # Width, resize, drag
+│   └── EditorSlot.tsx       # Editor with navigation
+└── panels/
+    ├── list/
+    │   ├── PRList.tsx
+    │   ├── BranchList.tsx
+    │   ├── WorktreeList.tsx
+    │   ├── StashList.tsx
+    │   └── Sidebar.tsx       # Focus mode sidebar
+    ├── viz/
+    │   └── GitGraph.tsx
+    └── editor/
+        └── ...               # Detail panels
+```
