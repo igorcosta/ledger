@@ -1146,9 +1146,11 @@ export default function App() {
       return (
         <PRDetailPanel
           pr={sidebarFocus.data as PullRequest}
+          repoPath={repoPath}
           formatRelativeTime={formatRelativeTime}
           onCheckout={handlePRCheckout}
           onPRMerged={refresh}
+          onStatusChange={setStatus}
           switching={switching}
         />
       )
