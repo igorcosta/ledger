@@ -332,13 +332,18 @@ export const CreatePRResultSchema = z.object({
   url: z.string().optional(),
 })
 
+// Merge method schema for PR merging
+export const MergeMethodSchema = z.enum(['merge', 'squash', 'rebase'])
+
+// Git reset mode schema
+export const ResetModeSchema = z.enum(['soft', 'mixed', 'hard'])
+
 // Theme schemas
 export const ThemeModeSchema = z.enum(['light', 'dark', 'system', 'custom'])
 export const SystemThemeSchema = z.enum(['light', 'dark'])
 
 export const CustomThemeSchema = z.object({
   name: z.string(),
-  path: z.string(),
   type: z.enum(['light', 'dark']),
   colors: z.record(z.string(), z.string()),
 })
@@ -347,6 +352,10 @@ export const ThemeDataSchema = z.object({
   theme: CustomThemeSchema,
   cssVars: z.record(z.string(), z.string()),
 })
+
+// Result schema for custom theme operations (can be null if no custom theme)
+// Returns ThemeData (theme + cssVars) or null
+export const CustomThemeResultSchema = ThemeDataSchema.nullable()
 
 // Type exports
 export type SuccessResult = z.infer<typeof SuccessResultSchema>
@@ -369,3 +378,5 @@ export type PRReviewComment = z.infer<typeof PRReviewCommentSchema>
 export type ThemeMode = z.infer<typeof ThemeModeSchema>
 export type CustomTheme = z.infer<typeof CustomThemeSchema>
 export type ThemeData = z.infer<typeof ThemeDataSchema>
+export type MergeMethod = z.infer<typeof MergeMethodSchema>
+export type ResetMode = z.infer<typeof ResetModeSchema>

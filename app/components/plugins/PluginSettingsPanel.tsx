@@ -45,16 +45,17 @@ export function PluginSettingsPanel() {
   const settingsOpen = usePluginStore((s) => s.settingsOpen)
   const closeSettings = usePluginStore((s) => s.closeSettings)
   const registrations = usePluginStore((s) => s.registrations)
-  const setRegistrations = usePluginStore((s) => s.setRegistrations)
 
   const [activeTab, setActiveTab] = useState<TabId>('all')
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [configuringPlugin, setConfiguringPlugin] = useState<Plugin | null>(null)
 
   // Sync registrations from plugin manager
+  // Note: Using getState() directly instead of the selector to avoid dependency issues
+  // Zustand selectors for functions can return new references on each render
   useEffect(() => {
     const syncRegistrations = () => {
-      setRegistrations(pluginManager.getAllRegistrations())
+      usePluginStore.getState().setRegistrations(pluginManager.getAllRegistrations())
     }
 
     syncRegistrations()
@@ -71,7 +72,7 @@ export function PluginSettingsPanel() {
       unsubRegistered()
       unsubUnregistered()
     }
-  }, [setRegistrations])
+  }, [])
 
   const filteredPlugins = useMemo(() => {
     if (activeTab === 'all') return registrations

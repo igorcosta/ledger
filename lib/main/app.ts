@@ -2,7 +2,6 @@ import { BrowserWindow, shell, app } from 'electron'
 import { join } from 'path'
 import appIcon from '@/resources/build/icon.png?asset'
 import { registerWindowHandlers } from '@/lib/conveyor/handlers/window-handler'
-import { registerAppHandlers } from '@/lib/conveyor/handlers/app-handler'
 
 export function createAppWindow(): void {
 
@@ -26,9 +25,8 @@ export function createAppWindow(): void {
     },
   })
 
-  // Register IPC events for the main window.
+  // Register window-specific IPC handlers (needs mainWindow reference)
   registerWindowHandlers(mainWindow)
-  registerAppHandlers(app)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()

@@ -15,7 +15,6 @@ import {
 
 // Import Conveyor handler registration functions
 import { registerAppHandlers } from '@/lib/conveyor/handlers/app-handler'
-import { registerWindowHandlers } from '@/lib/conveyor/handlers/window-handler'
 import { registerRepoHandlers } from '@/lib/conveyor/handlers/repo-handler'
 import { registerBranchHandlers } from '@/lib/conveyor/handlers/branch-handler'
 import { registerWorktreeHandlers } from '@/lib/conveyor/handlers/worktree-handler'
@@ -68,11 +67,8 @@ app.whenReady().then(() => {
   // Register custom protocol for resources (must be done once before any windows)
   registerResourcesProtocol()
 
-  // Create app window
-  const mainWindow = createAppWindow()
-
-  // Register window-specific handlers
-  registerWindowHandlers(mainWindow)
+  // Create app window (registers window-specific handlers internally)
+  createAppWindow()
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
