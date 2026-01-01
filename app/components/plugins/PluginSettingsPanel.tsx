@@ -14,13 +14,15 @@ import {
   Terminal,
   Settings,
   ExternalLink,
-  Check,
+  ChevronLeft,
   AlertCircle,
+  Sliders,
   type LucideIcon,
 } from 'lucide-react'
 import { usePluginStore } from '@/app/stores/plugin-store'
 import { pluginManager } from '@/lib/plugins'
 import type { Plugin, PluginType, PluginRegistration } from '@/lib/plugins/plugin-types'
+import { PluginConfigEditor } from './PluginConfigEditor'
 
 type TabId = 'all' | 'app' | 'panel' | 'widget' | 'service'
 
@@ -47,6 +49,7 @@ export function PluginSettingsPanel() {
 
   const [activeTab, setActiveTab] = useState<TabId>('all')
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [configuringPlugin, setConfiguringPlugin] = useState<Plugin | null>(null)
 
   // Sync registrations from plugin manager
   useEffect(() => {
@@ -90,57 +93,92 @@ export function PluginSettingsPanel() {
     }
   }
 
+  const handleConfigure = (plugin: Plugin) => {
+    setConfiguringPlugin(plugin)
+  }
+
+  const handleBackToList = () => {
+    setConfiguringPlugin(null)
+  }
+
   if (!settingsOpen) return null
 
   return (
     <div className="plugin-settings-overlay" onClick={closeSettings}>
       <div className="plugin-settings-panel" onClick={(e) => e.stopPropagation()}>
         <div className="plugin-settings-header">
-          <h2>Plugin Manager</h2>
+          {configuringPlugin ? (
+            <>
+              <button
+                className="plugin-settings-back"
+                onClick={handleBackToList}
+                title="Back to plugin list"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <h2>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>
+                  Settings /{' '}
+                </span>
+                {configuringPlugin.name}
+              </h2>
+            </>
+          ) : (
+            <h2>Plugin Manager</h2>
+          )}
           <button className="plugin-settings-close" onClick={closeSettings}>
             <X size={16} />
           </button>
         </div>
 
         <div className="plugin-settings-content">
-          {/* Tabs */}
-          <div className="plugin-settings-tabs">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                className={`plugin-settings-tab ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <tab.icon size={14} style={{ marginRight: 6 }} />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Plugin List */}
-          {filteredPlugins.length === 0 ? (
-            <div className="plugin-empty-state">
-              <div className="plugin-empty-state-icon">
-                <Puzzle size={32} />
-              </div>
-              <h3 className="plugin-empty-state-title">No plugins found</h3>
-              <p className="plugin-empty-state-description">
-                {activeTab === 'all'
-                  ? 'No plugins are installed yet. Check the documentation to learn how to create plugins.'
-                  : `No ${activeTab} plugins are installed.`}
-              </p>
-            </div>
+          {configuringPlugin ? (
+            // Plugin Configuration View
+            <PluginConfigEditor plugin={configuringPlugin} onClose={handleBackToList} />
           ) : (
-            <div className="plugin-list">
-              {filteredPlugins.map((registration) => (
-                <PluginCard
-                  key={registration.plugin.id}
-                  registration={registration}
-                  isToggling={togglingId === registration.plugin.id}
-                  onToggle={() => handleToggle(registration.plugin.id, registration.enabled)}
-                />
-              ))}
-            </div>
+            // Plugin List View
+            <>
+              {/* Tabs */}
+              <div className="plugin-settings-tabs">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    className={`plugin-settings-tab ${activeTab === tab.id ? 'active' : ''}`}
+                    onClick={() => setActiveTab(tab.id)}
+                  >
+                    <tab.icon size={14} style={{ marginRight: 6 }} />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Plugin List */}
+              {filteredPlugins.length === 0 ? (
+                <div className="plugin-empty-state">
+                  <div className="plugin-empty-state-icon">
+                    <Puzzle size={32} />
+                  </div>
+                  <h3 className="plugin-empty-state-title">No plugins found</h3>
+                  <p className="plugin-empty-state-description">
+                    {activeTab === 'all'
+                      ? 'No plugins are installed yet. Check the documentation to learn how to create plugins.'
+                      : `No ${activeTab} plugins are installed.`}
+                  </p>
+                </div>
+              ) : (
+                <div className="plugin-list">
+                  {filteredPlugins.map((registration) => (
+                    <PluginCard
+                      key={registration.plugin.id}
+                      registration={registration}
+                      isToggling={togglingId === registration.plugin.id}
+                      onToggle={() => handleToggle(registration.plugin.id, registration.enabled)}
+                      onConfigure={() => handleConfigure(registration.plugin)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -152,10 +190,12 @@ interface PluginCardProps {
   registration: PluginRegistration
   isToggling: boolean
   onToggle: () => void
+  onConfigure: () => void
 }
 
-function PluginCard({ registration, isToggling, onToggle }: PluginCardProps) {
+function PluginCard({ registration, isToggling, onToggle, onConfigure }: PluginCardProps) {
   const { plugin, enabled, error } = registration
+  const hasSettings = plugin.settings && plugin.settings.length > 0
 
   return (
     <div className={`plugin-card ${error ? 'has-error' : ''}`}>
@@ -184,6 +224,11 @@ function PluginCard({ registration, isToggling, onToggle }: PluginCardProps) {
             {plugin.type}
           </span>
           {plugin.author && <span>by {plugin.author}</span>}
+          {hasSettings && (
+            <span style={{ color: 'var(--text-tertiary)' }}>
+              {plugin.settings!.length} setting{plugin.settings!.length !== 1 ? 's' : ''}
+            </span>
+          )}
           {plugin.homepage && (
             <a
               href={plugin.homepage}
@@ -214,6 +259,15 @@ function PluginCard({ registration, isToggling, onToggle }: PluginCardProps) {
       </div>
 
       <div className="plugin-card-actions">
+        {hasSettings && (
+          <button
+            className="plugin-card-config-button"
+            onClick={onConfigure}
+            title="Configure plugin settings"
+          >
+            <Sliders size={14} />
+          </button>
+        )}
         <button
           className={`plugin-toggle ${enabled ? 'active' : ''}`}
           onClick={onToggle}

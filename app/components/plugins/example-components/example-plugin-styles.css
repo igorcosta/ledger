@@ -1,0 +1,698 @@
+/**
+ * Example Plugin Styles
+ *
+ * Demonstrates proper usage of Ledger design tokens.
+ * All plugins should follow these patterns for consistency.
+ */
+
+/* ============================================================================
+   Team Dashboard App
+   ============================================================================ */
+
+.team-dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+}
+
+.team-dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.team-dashboard-header-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.team-dashboard-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.team-dashboard-time-range {
+  display: flex;
+  gap: 4px;
+}
+
+.time-range-button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.time-range-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.time-range-button.active {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.team-dashboard-refresh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.team-dashboard-refresh:hover {
+  background: var(--bg-hover);
+}
+
+.team-dashboard-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.team-dashboard-refresh .spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.team-dashboard-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* ============================================================================
+   Dashboard Overview
+   ============================================================================ */
+
+.dashboard-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: all 0.15s ease;
+}
+
+.metric-card:hover {
+  border-color: var(--border-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.metric-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--bg-primary);
+}
+
+.metric-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.metric-trend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.metric-trend.up {
+  color: var(--success);
+}
+
+.metric-trend.down {
+  color: var(--error);
+}
+
+/* ============================================================================
+   Dashboard Cards
+   ============================================================================ */
+
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 20px;
+}
+
+.dashboard-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.dashboard-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-card-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.dashboard-card-subtitle {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ============================================================================
+   Contributor List
+   ============================================================================ */
+
+.contributor-list {
+  padding: 8px 0;
+}
+
+.contributor-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  transition: background 0.15s ease;
+}
+
+.contributor-row:hover {
+  background: var(--bg-hover);
+}
+
+.contributor-rank {
+  width: 24px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.contributor-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.contributor-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.contributor-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.contributor-activity {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.contributor-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.stat-commits {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.stat-diff {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.diff-add {
+  color: var(--success);
+}
+
+.diff-del {
+  color: var(--error);
+}
+
+/* ============================================================================
+   PR Status Chart
+   ============================================================================ */
+
+.pr-status-chart {
+  padding: 20px;
+}
+
+.pr-status-bar {
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+}
+
+.pr-bar-segment {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.pr-bar-segment.merged {
+  background: var(--success);
+}
+
+.pr-bar-segment.open {
+  background: var(--color-blue);
+}
+
+.pr-status-legend {
+  display: flex;
+  gap: 20px;
+  margin-top: 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.legend-dot.merged {
+  background: var(--success);
+}
+
+.legend-dot.open {
+  background: var(--color-blue);
+}
+
+/* ============================================================================
+   Attention Section
+   ============================================================================ */
+
+.attention-section {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.attention-section h4 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 12px 0;
+}
+
+.attention-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.attention-item:last-child {
+  margin-bottom: 0;
+}
+
+.attention-item.warning {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.attention-item.info {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.attention-item.error {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+/* ============================================================================
+   Activity Timeline
+   ============================================================================ */
+
+.activity-timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-left: 2px solid var(--border);
+  margin-left: 18px;
+}
+
+.activity-item:first-child {
+  border-left-color: var(--accent);
+}
+
+.activity-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: -18px;
+  border: 2px solid var(--bg-primary);
+}
+
+.activity-content {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.activity-content strong {
+  color: var(--text-primary);
+}
+
+.activity-time {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* ============================================================================
+   Dashboard Section (Generic)
+   ============================================================================ */
+
+.dashboard-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.dashboard-section h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.section-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ============================================================================
+   PR Review Queue Panel
+   ============================================================================ */
+
+.pr-queue-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.pr-queue-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pr-queue-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.pr-queue-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.pr-queue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.pr-queue-item:hover {
+  background: var(--bg-hover);
+}
+
+.pr-queue-urgency {
+  width: 4px;
+  height: 100%;
+  min-height: 48px;
+  border-radius: 2px;
+}
+
+.pr-queue-urgency.low { background: var(--success); }
+.pr-queue-urgency.medium { background: var(--info); }
+.pr-queue-urgency.high { background: var(--warning); }
+.pr-queue-urgency.critical { background: var(--error); }
+
+.pr-queue-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.pr-queue-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0 0 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pr-queue-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.pr-queue-waiting {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pr-queue-waiting.warning { color: var(--warning); }
+.pr-queue-waiting.critical { color: var(--error); }
+
+/* ============================================================================
+   Branch Health Widget
+   ============================================================================ */
+
+.branch-health-widget {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.branch-health-widget.healthy {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.branch-health-widget.warning {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.branch-health-widget.critical {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.branch-health-widget.stale {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
+/* ============================================================================
+   Common Button Styles
+   ============================================================================ */
+
+.plugin-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.plugin-button:hover {
+  background: var(--bg-hover);
+}
+
+.plugin-button:active {
+  transform: scale(0.98);
+}
+
+.plugin-button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.plugin-button.primary:hover {
+  background: var(--accent-dim);
+}
+
+.plugin-button.danger {
+  background: var(--error-bg);
+  border-color: var(--error-border);
+  color: var(--error-text);
+}
+
+.plugin-button.danger:hover {
+  background: var(--error);
+  color: white;
+}
+
+.plugin-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+   Common Badge Styles
+   ============================================================================ */
+
+.plugin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.plugin-badge.success {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.plugin-badge.warning {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.plugin-badge.error {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.plugin-badge.info {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.plugin-badge.neutral {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}

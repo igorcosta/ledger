@@ -13,6 +13,7 @@ export { PluginSidebar } from './PluginSidebar'
 
 // Settings
 export { PluginSettingsPanel } from './PluginSettingsPanel'
+export { PluginConfigEditor } from './PluginConfigEditor'
 
 // Component Registry
 export {

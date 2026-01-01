@@ -100,6 +100,20 @@ export {
   describePermission,
 } from './plugin-permissions'
 
+export { pluginSettingsStore } from './plugin-settings-store'
+
+export {
+  agentEvents,
+  notifyAgentCommit,
+  notifyAgentPush,
+  notifyAgentPRCreated,
+  notifyAgentConflict,
+  type AgentEvent,
+  type AgentEventType,
+  type AgentEventData,
+  type AgentState,
+} from './agent-events'
+
 // ============================================================================
 // Hook Helpers
 // ============================================================================

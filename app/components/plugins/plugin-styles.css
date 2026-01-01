@@ -129,6 +129,45 @@
   color: var(--text-primary);
 }
 
+.plugin-settings-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.plugin-settings-back:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.plugin-card-config-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.plugin-card-config-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
 .plugin-settings-content {
   flex: 1;
   overflow-y: auto;
@@ -612,4 +651,242 @@
 
 .plugin-card.has-error .plugin-card-icon {
   color: var(--error);
+}
+
+/* ============================================================================
+   Plugin Config Editor
+   ============================================================================ */
+
+.plugin-config-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.plugin-config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.plugin-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.plugin-config-field.has-error .plugin-config-input,
+.plugin-config-field.has-error .plugin-config-select {
+  border-color: var(--error);
+}
+
+.plugin-config-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plugin-config-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.plugin-config-label .required {
+  color: var(--error);
+  margin-left: 2px;
+}
+
+.plugin-config-description {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.plugin-config-error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--error);
+}
+
+.plugin-config-input-wrapper {
+  display: flex;
+}
+
+.plugin-config-input,
+.plugin-config-select {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.plugin-config-input:focus,
+.plugin-config-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.plugin-config-input::placeholder {
+  color: var(--text-muted);
+}
+
+.plugin-config-input[type="number"] {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Toggle Switch */
+.plugin-config-toggle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.plugin-config-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.plugin-config-toggle-track {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  transition: background 0.2s ease;
+}
+
+.plugin-config-toggle input:checked + .plugin-config-toggle-track {
+  background: var(--accent);
+}
+
+.plugin-config-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.plugin-config-toggle input:checked + .plugin-config-toggle-track .plugin-config-toggle-thumb {
+  transform: translateX(20px);
+}
+
+/* Multi-select Checkboxes */
+.plugin-config-multiselect {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plugin-config-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.plugin-config-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  accent-color: var(--accent);
+}
+
+/* Color Picker */
+.plugin-config-color {
+  display: flex;
+  gap: 8px;
+}
+
+.plugin-config-color input[type="color"] {
+  width: 40px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  cursor: pointer;
+}
+
+.plugin-config-color input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.plugin-config-color input[type="color"]::-webkit-color-swatch {
+  border-radius: 4px;
+  border: none;
+}
+
+/* Actions */
+.plugin-config-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.plugin-config-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.plugin-config-button:hover {
+  background: var(--bg-hover);
+}
+
+.plugin-config-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.plugin-config-button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.plugin-config-button.primary:hover:not(:disabled) {
+  background: var(--accent-dim);
+}
+
+.plugin-config-button.secondary {
+  background: transparent;
+}
+
+/* Empty State */
+.plugin-config-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
