@@ -365,6 +365,15 @@ app.whenReady().then(() => {
     }
   })
 
+  ipcMain.handle('remove-mailmap-entry', async (_, entry) => {
+    try {
+      const { removeMailmapEntry } = await import('./git-service')
+      return await removeMailmapEntry(entry)
+    } catch (_error) {
+      return { success: false, message: 'Failed to remove mailmap entry' }
+    }
+  })
+
   ipcMain.handle('get-commit-diff', async (_, commitHash: string) => {
     try {
       return await getCommitDiff(commitHash)

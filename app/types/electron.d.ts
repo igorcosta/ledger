@@ -391,6 +391,7 @@ export interface ElectronAPI {
   getAuthorIdentities: () => Promise<AuthorIdentity[]>
   suggestMailmapEntries: () => Promise<MailmapSuggestion[]>
   addMailmapEntries: (entries: MailmapEntry[]) => Promise<{ success: boolean; message: string }>
+  removeMailmapEntry: (entry: MailmapEntry) => Promise<{ success: boolean; message: string }>
   getCommitDiff: (commitHash: string) => Promise<CommitDiff | null>
   getBranchDiff: (branchName: string, diffType?: BranchDiffType) => Promise<BranchDiff | null>
   getStashes: () => Promise<StashEntry[]>

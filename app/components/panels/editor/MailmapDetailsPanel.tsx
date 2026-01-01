@@ -1,11 +1,11 @@
 /**
  * MailmapDetailsPanel - Manage author identity mappings via .mailmap
  *
- * Surfaces Git's native .mailmap feature with a drag-and-drop UI for
- * combining author identities. Part of Ledger's "Opinionated Git" approach.
+ * Shows all contributors and the current .mailmap file.
+ * Drag users onto each other to combine identities.
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { AuthorIdentity, MailmapEntry } from '../../../types/electron'
 import type { StatusMessage } from '../../../types/app-types'
 
@@ -23,248 +23,231 @@ export function MailmapDetailsPanel({
 }: MailmapDetailsPanelProps) {
   const [identities, setIdentities] = useState<AuthorIdentity[]>([])
   const [existingMailmap, setExistingMailmap] = useState<MailmapEntry[]>([])
-  const [mergedIdentities, setMergedIdentities] = useState<MergedIdentity[]>([])
+  const [pendingMerges, setPendingMerges] = useState<MergedIdentity[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [draggedIdentity, setDraggedIdentity] = useState<AuthorIdentity | null>(null)
-  const [dropTarget, setDropTarget] = useState<string | null>(null)
-  const [hasChanges, setHasChanges] = useState(false)
+  // Track dragged identity by unique key (name + email)
+  const [draggedKey, setDraggedKey] = useState<string | null>(null)
+  const [dropTargetKey, setDropTargetKey] = useState<string | null>(null)
   
-  const draggedRef = useRef<HTMLDivElement | null>(null)
+  // Create unique key for identity (since same email can have different names)
+  const identityKey = useCallback((identity: AuthorIdentity) => {
+    return `${identity.name}|||${identity.email}`
+  }, [])
 
-  // Load identities and existing mailmap
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true)
-      try {
-        const [allIdentities, mailmap] = await Promise.all([
-          window.electronAPI.getAuthorIdentities(),
-          window.electronAPI.getMailmap(),
-        ])
-        
-        setIdentities(allIdentities)
-        setExistingMailmap(mailmap)
-        
-        // Initialize merged identities from existing mailmap
-        const merged: MergedIdentity[] = []
-        const usedEmails = new Set<string>()
-        
-        // Group existing mailmap entries by canonical email
-        const mailmapGroups = new Map<string, MailmapEntry[]>()
-        for (const entry of mailmap) {
-          const key = entry.canonicalEmail.toLowerCase()
-          if (!mailmapGroups.has(key)) {
-            mailmapGroups.set(key, [])
-          }
-          mailmapGroups.get(key)!.push(entry)
-        }
-        
-        // Build merged identities from mailmap
-        for (const [canonicalEmail, entries] of mailmapGroups) {
-          const canonical = allIdentities.find(i => i.email.toLowerCase() === canonicalEmail)
-          if (!canonical) continue
-          
-          usedEmails.add(canonicalEmail)
-          const aliases: AuthorIdentity[] = []
-          
-          for (const entry of entries) {
-            const alias = allIdentities.find(i => i.email.toLowerCase() === entry.aliasEmail.toLowerCase())
-            if (alias) {
-              aliases.push(alias)
-              usedEmails.add(alias.email.toLowerCase())
-            }
-          }
-          
-          if (aliases.length > 0) {
-            merged.push({ canonical, aliases })
-          }
-        }
-        
-        setMergedIdentities(merged)
-      } catch (error) {
-        console.error('Error loading identities:', error)
-        onStatusChange?.({ type: 'error', message: 'Failed to load author identities' })
-      } finally {
-        setLoading(false)
-      }
+  // Load/reload data
+  const loadData = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true)
+    try {
+      const [rawIdentities, mailmap] = await Promise.all([
+        window.electronAPI.getAuthorIdentities(),
+        window.electronAPI.getMailmap(),
+      ])
+      setIdentities(rawIdentities)
+      setExistingMailmap(mailmap)
+      setPendingMerges([])
+    } catch (error) {
+      console.error('Error loading identities:', error)
+      onStatusChange?.({ type: 'error', message: 'Failed to load author identities' })
+    } finally {
+      if (showLoading) setLoading(false)
     }
-    
-    loadData()
   }, [onStatusChange])
 
-  // Get identities that are not yet merged (standalone)
-  const standaloneIdentities = useMemo(() => {
-    const mergedEmails = new Set<string>()
-    for (const merged of mergedIdentities) {
-      mergedEmails.add(merged.canonical.email.toLowerCase())
-      for (const alias of merged.aliases) {
-        mergedEmails.add(alias.email.toLowerCase())
+  // Initial load
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  // Identities not in any pending merge
+  const availableIdentities = useMemo(() => {
+    const usedKeys = new Set<string>()
+    for (const merge of pendingMerges) {
+      usedKeys.add(identityKey(merge.canonical))
+      for (const alias of merge.aliases) {
+        usedKeys.add(identityKey(alias))
       }
     }
-    return identities.filter(identity => !mergedEmails.has(identity.email.toLowerCase()))
-  }, [identities, mergedIdentities])
+    return identities.filter(i => !usedKeys.has(identityKey(i)))
+  }, [identities, pendingMerges, identityKey])
+
+  // Calculate stats for meta panel
+  const stats = useMemo(() => {
+    // Mapped: number of rows in .mailmap file
+    const mappedEntries = existingMailmap.length
+    
+    // Raw unique: total unique (name, email) pairs git sees
+    const rawUnique = identities.length
+    
+    // Unique (with mapping): simulate mailmap application
+    // For each identity, resolve to canonical if it's an alias, otherwise keep as-is
+    const resolvedSet = new Set<string>()
+    
+    for (const identity of identities) {
+      let resolvedKey: string | null = null
+      
+      // Check if this identity is an alias in any mailmap entry
+      for (const entry of existingMailmap) {
+        // Match logic: email must match, and if aliasName is specified, name must also match
+        const emailMatches = identity.email.toLowerCase() === entry.aliasEmail.toLowerCase()
+        const nameMatches = !entry.aliasName || identity.name === entry.aliasName
+        
+        if (emailMatches && nameMatches) {
+          // This identity is an alias - resolve to canonical
+          resolvedKey = `${entry.canonicalName.toLowerCase()}|||${entry.canonicalEmail.toLowerCase()}`
+          break
+        }
+      }
+      
+      if (!resolvedKey) {
+        // Not an alias - stays as itself
+        resolvedKey = `${identity.name.toLowerCase()}|||${identity.email.toLowerCase()}`
+      }
+      
+      resolvedSet.add(resolvedKey)
+    }
+    
+    return {
+      mappedEntries,
+      rawUnique,
+      uniqueWithMapping: resolvedSet.size,
+    }
+  }, [identities, existingMailmap])
+
+  // Find identity by key
+  const findIdentity = useCallback((key: string) => {
+    return identities.find(i => identityKey(i) === key)
+  }, [identities, identityKey])
 
   // Handle drag start
   const handleDragStart = useCallback((e: React.DragEvent, identity: AuthorIdentity) => {
-    setDraggedIdentity(identity)
+    const key = identityKey(identity)
+    setDraggedKey(key)
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', identity.email)
-    
-    // Add dragging class after a tick for visual feedback
-    setTimeout(() => {
-      if (draggedRef.current) {
-        draggedRef.current.classList.add('dragging')
-      }
-    }, 0)
-  }, [])
+    e.dataTransfer.setData('text/plain', key)
+  }, [identityKey])
 
   // Handle drag end
   const handleDragEnd = useCallback(() => {
-    setDraggedIdentity(null)
-    setDropTarget(null)
-    if (draggedRef.current) {
-      draggedRef.current.classList.remove('dragging')
-    }
+    setDraggedKey(null)
+    setDropTargetKey(null)
   }, [])
 
   // Handle drag over
-  const handleDragOver = useCallback((e: React.DragEvent, targetEmail: string) => {
+  const handleDragOver = useCallback((e: React.DragEvent, identity: AuthorIdentity) => {
     e.preventDefault()
-    e.stopPropagation()
-    e.dataTransfer.dropEffect = 'move'
-    
-    // Don't allow dropping on self
-    if (draggedIdentity?.email === targetEmail) return
-    
-    setDropTarget(targetEmail)
-  }, [draggedIdentity])
-
-  // Handle drag leave - only clear if actually leaving the card (not just moving between children)
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.stopPropagation()
-    // Check if we're leaving to an element outside this card
-    const relatedTarget = e.relatedTarget as Node | null
-    const currentTarget = e.currentTarget as Node
-    
-    // If the related target is inside the current target, don't clear
-    if (relatedTarget && currentTarget.contains(relatedTarget)) {
-      return
+    const key = identityKey(identity)
+    if (draggedKey && draggedKey !== key) {
+      setDropTargetKey(key)
     }
-    
-    setDropTarget(null)
+  }, [draggedKey, identityKey])
+
+  // Handle drag leave
+  const handleDragLeave = useCallback(() => {
+    setDropTargetKey(null)
   }, [])
 
-  // Handle drop - merge dragged identity into target
-  const handleDrop = useCallback((e: React.DragEvent, target: AuthorIdentity) => {
+  // Handle drop - create or add to merge
+  const handleDrop = useCallback((e: React.DragEvent, targetIdentity: AuthorIdentity) => {
     e.preventDefault()
-    e.stopPropagation()
     
-    // Store current dragged identity before clearing
-    const currentDragged = draggedIdentity
+    const targetKey = identityKey(targetIdentity)
     
-    // Clear visual feedback
-    if (draggedRef.current) {
-      draggedRef.current.classList.remove('dragging')
-    }
-    document.querySelectorAll('.mailmap-identity-card.dragging').forEach(el => {
-      el.classList.remove('dragging')
-    })
-    
-    // Validate drop
-    if (!currentDragged || currentDragged.email.toLowerCase() === target.email.toLowerCase()) {
-      setDropTarget(null)
-      setDraggedIdentity(null)
+    if (!draggedKey || draggedKey === targetKey) {
+      setDraggedKey(null)
+      setDropTargetKey(null)
       return
     }
-    
-    const draggedEmail = currentDragged.email.toLowerCase()
-    const targetEmail = target.email.toLowerCase()
-    
-    // Update merged identities
-    setMergedIdentities(prev => {
-      // Check if target is already a canonical
-      const existingMergeIndex = prev.findIndex(m => m.canonical.email.toLowerCase() === targetEmail)
-      
-      if (existingMergeIndex >= 0) {
-        // Add to existing merge
-        return prev.map((m, idx) => {
-          if (idx === existingMergeIndex) {
-            // Check if dragged was a canonical of another merge - bring its aliases too
-            const draggedMerge = prev.find(dm => dm.canonical.email.toLowerCase() === draggedEmail)
-            const newAliases = draggedMerge 
-              ? [currentDragged, ...draggedMerge.aliases]
-              : [currentDragged]
-            
-            return {
-              ...m,
-              aliases: [...m.aliases, ...newAliases.filter(a => 
-                !m.aliases.some(ea => ea.email.toLowerCase() === a.email.toLowerCase())
-              )]
-            }
-          }
-          return m
-        }).filter(m => m.canonical.email.toLowerCase() !== draggedEmail) // Remove if dragged was a canonical
-      } else {
-        // Check if dragged was a canonical
-        const draggedMerge = prev.find(m => m.canonical.email.toLowerCase() === draggedEmail)
-        
-        // Create new merge
-        const newMerge: MergedIdentity = {
-          canonical: target,
-          aliases: draggedMerge 
-            ? [currentDragged, ...draggedMerge.aliases]
-            : [currentDragged]
-        }
-        
-        return [
-          ...prev.filter(m => m.canonical.email.toLowerCase() !== draggedEmail),
-          newMerge
-        ]
-      }
-    })
-    
-    // Clear drag state AFTER state update
-    setDropTarget(null)
-    setDraggedIdentity(null)
-    setHasChanges(true)
-  }, [draggedIdentity])
 
-  // Handle removing an alias from a merge
-  const handleRemoveAlias = useCallback((canonicalEmail: string, aliasEmail: string) => {
-    const canonicalLower = canonicalEmail.toLowerCase()
-    const aliasLower = aliasEmail.toLowerCase()
+    const dragged = findIdentity(draggedKey)
     
-    setMergedIdentities(prev => {
+    if (!dragged) {
+      setDraggedKey(null)
+      setDropTargetKey(null)
+      return
+    }
+
+    setPendingMerges(prev => {
+      const draggedK = draggedKey
+      const targetK = targetKey
+      
+      // Remove dragged from any existing merge (as canonical or alias)
+      let updated = prev.map(m => {
+        if (identityKey(m.canonical) === draggedK) {
+          // Dragged was a canonical - dissolve this merge, aliases go back to available
+          return null
+        }
+        // Remove from aliases
+        const newAliases = m.aliases.filter(a => identityKey(a) !== draggedK)
+        if (newAliases.length === 0 && identityKey(m.canonical) !== targetK) {
+          return null // No more aliases and not the target - dissolve
+        }
+        return { ...m, aliases: newAliases }
+      }).filter(Boolean) as MergedIdentity[]
+
+      // Check if target is already a canonical
+      const targetMergeIdx = updated.findIndex(m => identityKey(m.canonical) === targetK)
+      
+      if (targetMergeIdx >= 0) {
+        // Add dragged to existing group
+        updated[targetMergeIdx] = {
+          ...updated[targetMergeIdx],
+          aliases: [...updated[targetMergeIdx].aliases, dragged]
+        }
+      } else {
+        // Create new merge with target as canonical
+        updated.push({ canonical: targetIdentity, aliases: [dragged] })
+      }
+
+      return updated
+    })
+
+    setDraggedKey(null)
+    setDropTargetKey(null)
+  }, [draggedKey, findIdentity, identityKey])
+
+  // Remove alias from merge
+  const handleRemoveAlias = useCallback((canonical: AuthorIdentity, alias: AuthorIdentity) => {
+    setPendingMerges(prev => {
       return prev.map(m => {
-        if (m.canonical.email.toLowerCase() === canonicalLower) {
-          const newAliases = m.aliases.filter(a => a.email.toLowerCase() !== aliasLower)
-          // If no more aliases, remove the merge entirely
-          if (newAliases.length === 0) {
-            return null
-          }
+        if (identityKey(m.canonical) === identityKey(canonical)) {
+          const newAliases = m.aliases.filter(a => identityKey(a) !== identityKey(alias))
+          if (newAliases.length === 0) return null
           return { ...m, aliases: newAliases }
         }
         return m
       }).filter(Boolean) as MergedIdentity[]
     })
-    setHasChanges(true)
-  }, [])
+  }, [identityKey])
 
-  // Save changes to .mailmap
+  // Delete a mailmap entry
+  const handleDeleteEntry = useCallback(async (entry: MailmapEntry) => {
+    try {
+      const result = await window.electronAPI.removeMailmapEntry(entry)
+      if (result.success) {
+        onStatusChange?.({ type: 'success', message: result.message })
+        await loadData(false)
+      } else {
+        onStatusChange?.({ type: 'error', message: result.message })
+      }
+    } catch (_error) {
+      onStatusChange?.({ type: 'error', message: 'Failed to remove entry' })
+    }
+  }, [onStatusChange, loadData])
+
+  // Save to .mailmap
   const handleSave = useCallback(async () => {
     setSaving(true)
     onStatusChange?.({ type: 'info', message: 'Saving to .mailmap...' })
     
     try {
-      // Build mailmap entries from merged identities
       const entries: MailmapEntry[] = []
-      
-      for (const merged of mergedIdentities) {
-        for (const alias of merged.aliases) {
+      for (const merge of pendingMerges) {
+        for (const alias of merge.aliases) {
           entries.push({
-            canonicalName: merged.canonical.name,
-            canonicalEmail: merged.canonical.email,
-            aliasName: alias.name !== merged.canonical.name ? alias.name : undefined,
+            canonicalName: merge.canonical.name,
+            canonicalEmail: merge.canonical.email,
+            aliasName: alias.name !== merge.canonical.name ? alias.name : undefined,
             aliasEmail: alias.email,
           })
         }
@@ -274,66 +257,39 @@ export function MailmapDetailsPanel({
       
       if (result.success) {
         onStatusChange?.({ type: 'success', message: result.message })
-        setHasChanges(false)
-        setExistingMailmap(await window.electronAPI.getMailmap())
+        // Reload all data to refresh the table
+        await loadData(false)
       } else {
         onStatusChange?.({ type: 'error', message: result.message })
       }
-    } catch (error) {
+    } catch (_error) {
       onStatusChange?.({ type: 'error', message: 'Failed to save .mailmap' })
     } finally {
       setSaving(false)
     }
-  }, [mergedIdentities, onStatusChange])
+  }, [pendingMerges, onStatusChange, loadData])
 
-  // Render an identity card
-  const renderIdentityCard = (
-    identity: AuthorIdentity,
-    isCanonical: boolean = false,
-    onRemove?: () => void
-  ) => {
-    const emailLower = identity.email.toLowerCase()
-    const isDragging = draggedIdentity?.email.toLowerCase() === emailLower
-    const isDropTarget = dropTarget?.toLowerCase() === emailLower && !isDragging
-    
-    // Canonical identities with aliases cannot be dragged (they'd orphan their group)
-    const hasAliases = isCanonical && mergedIdentities.some(
-      m => m.canonical.email.toLowerCase() === emailLower && m.aliases.length > 0
-    )
-    const canDrag = !hasAliases
+  // Render identity card
+  const renderCard = (identity: AuthorIdentity, options?: { onRemove?: () => void }) => {
+    const key = identityKey(identity)
+    const isDragging = draggedKey === key
+    const isDropTarget = dropTargetKey === key
     
     return (
       <div
-        ref={isDragging ? draggedRef : undefined}
-        className={`mailmap-identity-card ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''} ${isCanonical ? 'canonical' : ''}`}
-        draggable={canDrag}
+        className={`mailmap-card ${isDragging ? 'dragging' : ''} ${isDropTarget ? 'drop-target' : ''}`}
+        draggable
         onDragStart={(e) => handleDragStart(e, identity)}
         onDragEnd={handleDragEnd}
-        onDragOver={(e) => handleDragOver(e, identity.email)}
-        onDragLeave={(e) => handleDragLeave(e)}
+        onDragOver={(e) => handleDragOver(e, identity)}
+        onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, identity)}
       >
-        <div className="identity-avatar">
-          {identity.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-        </div>
-        <div className="identity-info">
-          <div className="identity-name">{identity.name}</div>
-          <div className="identity-email">{identity.email}</div>
-        </div>
-        <div className="identity-commits">
-          {identity.commitCount.toLocaleString()}
-        </div>
-        {onRemove && (
-          <button
-            className="identity-remove"
-            onClick={(e) => {
-              e.stopPropagation()
-              onRemove()
-            }}
-            title="Remove from group"
-          >
-            ×
-          </button>
+        <span className="card-name">{identity.name}</span>
+        <span className="card-email">{identity.email}</span>
+        <span className="card-count">{identity.commitCount}</span>
+        {options?.onRemove && (
+          <button className="card-remove" onClick={options.onRemove} title="Remove">×</button>
         )}
       </div>
     )
@@ -341,92 +297,112 @@ export function MailmapDetailsPanel({
 
   if (loading) {
     return (
-      <div className="sidebar-detail-panel mailmap-detail-panel">
-        <div className="detail-loading">
-          <div className="loading-spinner" />
-          <span>Loading author identities...</span>
-        </div>
+      <div className="sidebar-detail-panel mailmap-panel">
+        <div className="detail-loading">Loading contributors...</div>
       </div>
     )
   }
 
   return (
-    <div className="sidebar-detail-panel mailmap-detail-panel">
-      {/* Header - matches other detail panels */}
-      <div className="detail-type-badge">Mailmap</div>
+    <div className="sidebar-detail-panel mailmap-panel">
+      <div className="detail-type-badge">Contributors</div>
       <h3 className="detail-title">Manage Author Identities</h3>
       
-      <p className="mailmap-description">
-        Drag users onto each other to combine identities. Changes are saved to <code>.mailmap</code> in your repository.
+      {/* Meta grid like other detail panels */}
+      <div className="detail-meta-grid">
+        <div className="detail-meta-item">
+          <span className="meta-label">Mapped</span>
+          <span className="meta-value">{stats.mappedEntries}</span>
+        </div>
+        <div className="detail-meta-item">
+          <span className="meta-label">Raw Unique</span>
+          <span className="meta-value">{stats.rawUnique}</span>
+        </div>
+        <div className="detail-meta-item">
+          <span className="meta-label">Unique</span>
+          <span className="meta-value">{stats.uniqueWithMapping}</span>
+        </div>
+      </div>
+
+      <p className="mailmap-hint">
+        Drag one user onto another to combine them. The drop target becomes the canonical name.
       </p>
 
-      {/* Merged Identities */}
-      {mergedIdentities.length > 0 && (
+      {/* Pending Merges */}
+      {pendingMerges.length > 0 && (
         <div className="mailmap-section">
-          <div className="mailmap-section-header">
-            <h4>Combined Identities</h4>
-            <span className="mailmap-section-count">{mergedIdentities.length}</span>
-          </div>
-          <div className="mailmap-merged-list">
-            {mergedIdentities.map((merged) => (
-              <div key={`merged-${merged.canonical.email}`} className="mailmap-merged-group">
-                <div className="merged-canonical" key={`canonical-${merged.canonical.email}`}>
-                  {renderIdentityCard(merged.canonical, true)}
+          <h4>Pending Changes ({pendingMerges.length})</h4>
+          <div className="mailmap-merges">
+            {pendingMerges.map((merge, idx) => (
+              <div key={`merge-${idx}`} className="mailmap-merge-group">
+                <div className="merge-canonical">
+                  {renderCard(merge.canonical)}
                 </div>
-                <div className="merged-aliases">
-                  <div className="merged-aliases-label">includes:</div>
-                  {merged.aliases.map((alias) => (
-                    <div key={`alias-${alias.email}`} className="merged-alias">
-                      {renderIdentityCard(alias, false, () => handleRemoveAlias(merged.canonical.email, alias.email))}
+                <div className="merge-arrow">←</div>
+                <div className="merge-aliases">
+                  {merge.aliases.map((alias, aIdx) => (
+                    <div key={`alias-${aIdx}`}>
+                      {renderCard(alias, { onRemove: () => handleRemoveAlias(merge.canonical, alias) })}
                     </div>
                   ))}
                 </div>
               </div>
             ))}
           </div>
+          <button 
+            className="btn btn-primary" 
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save to .mailmap'}
+          </button>
         </div>
       )}
 
-      {/* Standalone Identities */}
+      {/* All Contributors */}
       <div className="mailmap-section">
-        <div className="mailmap-section-header">
-          <h4>All Contributors</h4>
-          <span className="mailmap-section-count">{standaloneIdentities.length}</span>
-        </div>
-        <div className="mailmap-identity-list">
-          {standaloneIdentities.map((identity) => (
-            <div key={identity.email}>
-              {renderIdentityCard(identity)}
+        <h4>Contributors ({availableIdentities.length})</h4>
+        <div className="mailmap-list">
+          {availableIdentities.map((identity, idx) => (
+            <div key={`id-${idx}`}>
+              {renderCard(identity)}
             </div>
           ))}
         </div>
-        {standaloneIdentities.length === 0 && (
-          <div className="mailmap-empty">
-            All identities have been combined
-          </div>
-        )}
       </div>
 
-      {/* Footer Actions */}
-      <div className="mailmap-actions">
-        <div className="mailmap-actions-hint">
-          {existingMailmap.length > 0 && (
-            <span className="mailmap-existing">
-              .mailmap exists with {existingMailmap.length} entries
-            </span>
-          )}
+      {/* Existing .mailmap entries */}
+      {existingMailmap.length > 0 && (
+        <div className="mailmap-section">
+          <h4>Current .mailmap ({existingMailmap.length} entries)</h4>
+          <table className="mailmap-table">
+            <thead>
+              <tr>
+                <th>Canonical</th>
+                <th>Alias</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {existingMailmap.map((entry, idx) => (
+                <tr key={`entry-${idx}`}>
+                  <td>{entry.canonicalName} &lt;{entry.canonicalEmail}&gt;</td>
+                  <td>{entry.aliasName ? `${entry.aliasName} ` : ''}&lt;{entry.aliasEmail}&gt;</td>
+                  <td>
+                    <button 
+                      className="mailmap-delete-btn"
+                      onClick={() => handleDeleteEntry(entry)}
+                      title="Remove entry"
+                    >
+                      ×
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="mailmap-actions-buttons">
-          <button
-            className="btn btn-primary"
-            onClick={handleSave}
-            disabled={saving || !hasChanges}
-          >
-            {saving ? 'Saving...' : hasChanges ? 'Save to .mailmap' : 'No Changes'}
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
-

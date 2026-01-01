@@ -2384,6 +2384,35 @@ export async function addMailmapEntries(entries: MailmapEntry[]): Promise<{ succ
   }
 }
 
+// Remove a specific entry from .mailmap
+export async function removeMailmapEntry(entry: MailmapEntry): Promise<{ success: boolean; message: string }> {
+  if (!repoPath) return { success: false, message: 'No repository selected' }
+  
+  const mailmapPath = path.join(repoPath, '.mailmap')
+  
+  try {
+    const content = await fs.promises.readFile(mailmapPath, 'utf-8')
+    const lines = content.split('\n')
+    
+    // Build the line pattern to remove
+    const targetLine = entry.aliasName
+      ? `${entry.canonicalName} <${entry.canonicalEmail}> ${entry.aliasName} <${entry.aliasEmail}>`
+      : `${entry.canonicalName} <${entry.canonicalEmail}> <${entry.aliasEmail}>`
+    
+    // Filter out the matching line (case-sensitive match)
+    const newLines = lines.filter(line => line.trim() !== targetLine.trim())
+    
+    if (newLines.length === lines.length) {
+      return { success: false, message: 'Entry not found in .mailmap' }
+    }
+    
+    await fs.promises.writeFile(mailmapPath, newLines.join('\n'), 'utf-8')
+    return { success: true, message: 'Removed entry from .mailmap' }
+  } catch (error) {
+    return { success: false, message: `Failed to update .mailmap: ${error}` }
+  }
+}
+
 // Normalize and cluster author identities
 // Groups commits by the same person using email domain, name similarity, and common patterns
 function clusterAuthors(

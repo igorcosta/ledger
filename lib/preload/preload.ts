@@ -49,6 +49,8 @@ const electronAPI = {
   suggestMailmapEntries: () => ipcRenderer.invoke('suggest-mailmap-entries'),
   addMailmapEntries: (entries: Array<{ canonicalName: string; canonicalEmail: string; aliasName?: string; aliasEmail: string }>) =>
     ipcRenderer.invoke('add-mailmap-entries', entries),
+  removeMailmapEntry: (entry: { canonicalName: string; canonicalEmail: string; aliasName?: string; aliasEmail: string }) =>
+    ipcRenderer.invoke('remove-mailmap-entry', entry),
   getCommitDiff: (commitHash: string) => ipcRenderer.invoke('get-commit-diff', commitHash),
   getBranchDiff: (branchName: string, diffType?: 'diff' | 'changes' | 'preview') => ipcRenderer.invoke('get-branch-diff', branchName, diffType),
   getStashes: () => ipcRenderer.invoke('get-stashes'),
