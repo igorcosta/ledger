@@ -311,22 +311,55 @@ export function MailmapDetailsPanel({
       {/* Meta grid like other detail panels */}
       <div className="detail-meta-grid">
         <div className="detail-meta-item">
-          <span className="meta-label">Mapped</span>
-          <span className="meta-value">{stats.mappedEntries}</span>
-        </div>
-        <div className="detail-meta-item">
-          <span className="meta-label">Raw Unique</span>
+          <span className="meta-label">Git Authors</span>
           <span className="meta-value">{stats.rawUnique}</span>
         </div>
         <div className="detail-meta-item">
-          <span className="meta-label">Unique</span>
+          <span className="meta-label">After Mapping</span>
           <span className="meta-value">{stats.uniqueWithMapping}</span>
+        </div>
+        <div className="detail-meta-item">
+          <span className="meta-label">Entries</span>
+          <span className="meta-value">{stats.mappedEntries}</span>
         </div>
       </div>
 
       <p className="mailmap-hint">
         Drag one user onto another to combine them. The drop target becomes the canonical name.
       </p>
+
+      {/* Existing .mailmap entries */}
+      {existingMailmap.length > 0 && (
+        <div className="mailmap-section">
+          <h4>Current .mailmap ({existingMailmap.length} entries)</h4>
+          <table className="mailmap-table">
+            <thead>
+              <tr>
+                <th>Canonical</th>
+                <th>Alias</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {existingMailmap.map((entry, idx) => (
+                <tr key={`entry-${idx}`}>
+                  <td>{entry.canonicalName} &lt;{entry.canonicalEmail}&gt;</td>
+                  <td>{entry.aliasName ? `${entry.aliasName} ` : ''}&lt;{entry.aliasEmail}&gt;</td>
+                  <td>
+                    <button 
+                      className="mailmap-delete-btn"
+                      onClick={() => handleDeleteEntry(entry)}
+                      title="Remove entry"
+                    >
+                      ×
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Pending Merges */}
       {pendingMerges.length > 0 && (
@@ -370,39 +403,6 @@ export function MailmapDetailsPanel({
           ))}
         </div>
       </div>
-
-      {/* Existing .mailmap entries */}
-      {existingMailmap.length > 0 && (
-        <div className="mailmap-section">
-          <h4>Current .mailmap ({existingMailmap.length} entries)</h4>
-          <table className="mailmap-table">
-            <thead>
-              <tr>
-                <th>Canonical</th>
-                <th>Alias</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {existingMailmap.map((entry, idx) => (
-                <tr key={`entry-${idx}`}>
-                  <td>{entry.canonicalName} &lt;{entry.canonicalEmail}&gt;</td>
-                  <td>{entry.aliasName ? `${entry.aliasName} ` : ''}&lt;{entry.aliasEmail}&gt;</td>
-                  <td>
-                    <button 
-                      className="mailmap-delete-btn"
-                      onClick={() => handleDeleteEntry(entry)}
-                      title="Remove entry"
-                    >
-                      ×
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   )
 }

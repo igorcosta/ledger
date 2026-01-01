@@ -117,6 +117,13 @@ export function PRList({
   const label = column?.label || 'Pull Requests'
   const icon = column?.icon || '⬡'
 
+  // Build active filter label
+  const activeFilterParts: string[] = []
+  if (search.trim()) activeFilterParts.push(`"${search.trim()}"`)
+  if (filter === 'open-draft') activeFilterParts.push('Drafts')
+  // Note: 'open-not-draft' is the default, so we don't show it
+  const activeFilter = activeFilterParts.length > 0 ? activeFilterParts.join(' · ') : undefined
+
   return (
     <div className="list-panel pr-list-panel">
       <ListPanelHeader
@@ -125,6 +132,7 @@ export function PRList({
         count={filteredPRs.length}
         controlsOpen={controlsOpen}
         onToggleControls={() => setControlsOpen(!controlsOpen)}
+        activeFilter={activeFilter}
       />
 
       {/* Controls */}

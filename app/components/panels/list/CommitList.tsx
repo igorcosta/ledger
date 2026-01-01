@@ -129,6 +129,12 @@ export function CommitList({
     ? 'No commits match filter'
     : 'No commits'
 
+  // Build active filter label
+  const activeFilterParts: string[] = []
+  if (search.trim()) activeFilterParts.push(`"${search.trim()}"`)
+  if (filter !== 'all') activeFilterParts.push(filter === 'branch-heads' ? 'Branch Heads' : 'Unmerged')
+  const activeFilter = activeFilterParts.length > 0 ? activeFilterParts.join(' · ') : undefined
+
   return (
     <div className="list-panel commits-list-panel">
       <ListPanelHeader
@@ -138,6 +144,7 @@ export function CommitList({
         controlsOpen={controlsOpen}
         onToggleControls={() => setControlsOpen(!controlsOpen)}
         badge={currentBranch ? <code className="commit-hash branch-badge">{currentBranch}</code> : undefined}
+        activeFilter={activeFilter}
       />
 
       {/* Controls */}

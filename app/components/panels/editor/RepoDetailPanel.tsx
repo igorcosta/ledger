@@ -101,20 +101,6 @@ export function RepoDetailPanel({
         )}
       </div>
 
-      {/* Info section */}
-      {repo.isCurrent ? (
-        <div className="detail-info-section">
-          <div className="info-note">
-            This is the currently open repository. Use the panels to explore branches, PRs, and worktrees.
-          </div>
-        </div>
-      ) : (
-        <div className="detail-info-section">
-          <div className="info-note">
-            Open this repository in Ledger to view its branches, pull requests, and worktrees.
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -11,7 +11,7 @@
  * - Canvas config determines layout
  */
 
-import { useCallback, type ReactNode } from 'react'
+import React, { useCallback, useState, type ReactNode } from 'react'
 import type { Column } from '../../types/app-types'
 import type {
   PullRequest,
@@ -167,6 +167,7 @@ export function CanvasRenderer({
     activeCanvas,
     resizeColumn,
     reorderColumns,
+    setColumnPanel,
   } = useCanvas()
 
   // Render a list panel based on column config
@@ -293,6 +294,8 @@ export function CanvasRenderer({
               onDoubleClickStash={handlers.onDoubleClickStash}
               onSelectRepo={handlers.onSelectRepo}
               onDoubleClickRepo={handlers.onDoubleClickRepo}
+              onCreateBranch={handlers.onCreateBranch}
+              onCreateWorktree={handlers.onCreateWorktree}
               formatRelativeTime={handlers.formatRelativeTime}
             />
           )
@@ -322,18 +325,75 @@ export function CanvasRenderer({
   // Render a viz panel based on column config
   const renderVizSlot = useCallback(
     (column: Column): ReactNode => {
+      // Shared viz header with chart selector
+      const VizHeader = ({ 
+        panel, 
+        label, 
+        icon 
+      }: { 
+        panel: string
+        label: string
+        icon: string 
+      }) => {
+        const [controlsOpen, setControlsOpen] = useState(false)
+        
+        const chartOptions = [
+          { id: 'git-graph', label: 'Git Graph', icon: '◉' },
+          { id: 'timeline', label: 'Timeline', icon: '◔' },
+          { id: 'tech-tree', label: 'Tech Tree', icon: '⬡' },
+        ]
+        
+        return (
+          <>
+            <div 
+              className={`column-header clickable-header ${controlsOpen ? 'open' : ''}`}
+              onClick={() => setControlsOpen(!controlsOpen)}
+            >
+              <div className="column-title">
+                <h2>
+                  <span className="column-icon">{icon}</span>
+                  {label}
+                </h2>
+                <span className={`header-chevron ${controlsOpen ? 'open' : ''}`}>▾</span>
+              </div>
+            </div>
+            {controlsOpen && (
+              <div className="column-controls" onClick={(e) => e.stopPropagation()}>
+                <div className="control-row">
+                  <label>Chart</label>
+                  <select
+                    value={panel}
+                    onChange={(e) => {
+                      // Update column panel through canvas context
+                      if (activeCanvas) {
+                        setColumnPanel(activeCanvas.id, column.id, e.target.value as import('../../types/app-types').PanelType)
+                      }
+                      setControlsOpen(false)
+                    }}
+                    className="control-select"
+                  >
+                    {chartOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.icon} {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+          </>
+        )
+      }
+      
       switch (column.panel) {
         case 'git-graph':
           return (
             <div className="viz-panel git-graph-panel">
-              <div className="column-header">
-                <div className="column-title">
-                  <h2>
-                    <span className="column-icon">{column.icon || '◉'}</span>
-                    {column.label || 'History'}
-                  </h2>
-                </div>
-              </div>
+              <VizHeader 
+                panel={column.panel}
+                label={column.label || 'History'} 
+                icon={column.icon || '◉'} 
+              />
               <div className="viz-panel-content">
                 <GitGraph
                   commits={data.commits}
@@ -349,27 +409,31 @@ export function CanvasRenderer({
         case 'timeline':
           return (
             <div className="viz-panel timeline-panel">
-              <ContributorChart
-                topN={10}
-                bucketSize="week"
-                height={500}
-                invertedTheme={true}
-                onManageUsers={handlers.onOpenMailmap}
+              <VizHeader 
+                panel={column.panel}
+                label={column.label || 'Timeline'} 
+                icon={column.icon || '◔'} 
               />
+              <div className="viz-panel-content">
+                <ContributorChart
+                  topN={10}
+                  bucketSize="week"
+                  height={500}
+                  invertedTheme={true}
+                  onManageUsers={handlers.onOpenMailmap}
+                />
+              </div>
             </div>
           )
 
         case 'tech-tree':
           return (
             <div className="viz-panel tech-tree-panel">
-              <div className="column-header">
-                <div className="column-title">
-                  <h2>
-                    <span className="column-icon">{column.icon || '⬡'}</span>
-                    {column.label || 'Tech Tree'}
-                  </h2>
-                </div>
-              </div>
+              <VizHeader 
+                panel={column.panel}
+                label={column.label || 'Tech Tree'} 
+                icon={column.icon || '⬡'} 
+              />
               <div className="viz-panel-content">
                 <TechTreeChart
                   limit={25}
@@ -390,7 +454,7 @@ export function CanvasRenderer({
           )
       }
     },
-    [data.commits, selection.selectedCommit, handlers]
+    [data.commits, selection.selectedCommit, handlers, activeCanvas, setColumnPanel]
   )
 
   // Render an editor panel based on column config

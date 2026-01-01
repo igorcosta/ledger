@@ -117,6 +117,12 @@ export function BranchList({
     ? 'No branches match filter' 
     : isRemote ? 'No remote branches' : 'No local branches'
 
+  // Build active filter label
+  const activeFilterParts: string[] = []
+  if (search.trim()) activeFilterParts.push(`"${search.trim()}"`)
+  if (filter !== 'all') activeFilterParts.push(filter === 'local-only' ? 'Local Only' : 'Unmerged')
+  const activeFilter = activeFilterParts.length > 0 ? activeFilterParts.join(' · ') : undefined
+
   return (
     <div className={`list-panel branch-list-panel ${isRemote ? 'remote' : 'local'}`}>
       <ListPanelHeader
@@ -125,6 +131,7 @@ export function BranchList({
         count={filteredBranches.length}
         controlsOpen={controlsOpen}
         onToggleControls={() => setControlsOpen(!controlsOpen)}
+        activeFilter={activeFilter}
       />
 
       {/* Controls */}
