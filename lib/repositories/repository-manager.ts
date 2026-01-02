@@ -1,3 +1,4 @@
+import * as path from 'path'
 import { RepositoryContext, RepositoryType, createRepositoryContext } from './repository-context'
 
 /**
@@ -177,8 +178,11 @@ export class RepositoryManager {
    * @returns The repository context
    */
   async open(repoPath: string, makeActive: boolean = true): Promise<RepositoryContext> {
+    // Normalize path to handle trailing slashes, symlinks, etc.
+    const normalizedPath = path.resolve(repoPath)
+    
     // Check if already open
-    const existingId = this.pathIndex.get(repoPath)
+    const existingId = this.pathIndex.get(normalizedPath)
     if (existingId) {
       const existing = this.contexts.get(existingId)!
       existing.lastAccessed = new Date()
@@ -198,7 +202,24 @@ export class RepositoryManager {
     this.evictLRUIfNeeded()
 
     // Create new context
-    const context = await createRepositoryContext(repoPath)
+    const context = await createRepositoryContext(normalizedPath)
+
+    // Check again after creation - git may have resolved to a different root
+    // (e.g., if user opened a subdirectory of a repo)
+    if (context.path) {
+      const existingByActualPath = this.pathIndex.get(context.path)
+      if (existingByActualPath) {
+        const existing = this.contexts.get(existingByActualPath)!
+        existing.lastAccessed = new Date()
+        if (makeActive && this.activeId !== existingByActualPath) {
+          this._switchEpoch++
+          this.activeId = existingByActualPath
+          this.syncGlobalState()
+          this.notifyChange()
+        }
+        return existing
+      }
+    }
 
     // Store in maps
     this.contexts.set(context.id, context)
