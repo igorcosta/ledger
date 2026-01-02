@@ -14,6 +14,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import { RepositoryContext } from '@/lib/repositories'
 import { stashChanges } from '@/lib/services/branch'
+import { safeExec } from '@/lib/utils/safe-exec'
 import {
   WorktreeAgent,
   WorktreeActivityStatus,
@@ -392,12 +393,19 @@ export async function convertWorktreeToBranch(
       const tempPatchFile = path.join(ctx.path, '.ledger-temp-patch')
       try {
         await fs.promises.writeFile(tempPatchFile, patchOutput)
-        await execAsync(`git apply --3way "${tempPatchFile}"`, { cwd: ctx.path })
+        // Use safeExec to prevent command injection (file path as separate arg)
+        const applyResult = await safeExec('git', ['apply', '--3way', tempPatchFile], { cwd: ctx.path })
+        if (!applyResult.success) {
+          throw new Error(applyResult.stderr || 'git apply failed')
+        }
       } catch (applyError) {
         // If apply fails, try to apply with less strict options
-        try {
-          await execAsync(`git apply --reject --whitespace=fix "${tempPatchFile}"`, { cwd: ctx.path })
-        } catch {
+        const fallbackResult = await safeExec(
+          'git',
+          ['apply', '--reject', '--whitespace=fix', tempPatchFile],
+          { cwd: ctx.path }
+        )
+        if (!fallbackResult.success) {
           // Clean up and revert to the base branch
           try {
             await fs.promises.unlink(tempPatchFile)
@@ -484,14 +492,22 @@ export async function applyWorktreeChanges(
       const tempPatchFile = path.join(ctx.path, '.ledger-temp-patch')
       try {
         await fs.promises.writeFile(tempPatchFile, patchOutput)
-        await execAsync(`git apply --3way "${tempPatchFile}"`, { cwd: ctx.path })
+        // Use safeExec to prevent command injection (file path as separate arg)
+        const applyResult = await safeExec('git', ['apply', '--3way', tempPatchFile], { cwd: ctx.path })
+        if (!applyResult.success) {
+          throw new Error(applyResult.stderr || 'git apply failed')
+        }
         await fs.promises.unlink(tempPatchFile)
       } catch (_applyError) {
         // If apply fails, try with less strict options
-        try {
-          await execAsync(`git apply --reject --whitespace=fix "${tempPatchFile}"`, { cwd: ctx.path })
+        const fallbackResult = await safeExec(
+          'git',
+          ['apply', '--reject', '--whitespace=fix', tempPatchFile],
+          { cwd: ctx.path }
+        )
+        if (fallbackResult.success) {
           await fs.promises.unlink(tempPatchFile)
-        } catch {
+        } else {
           try {
             await fs.promises.unlink(tempPatchFile)
           } catch {

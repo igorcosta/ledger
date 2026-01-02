@@ -121,19 +121,31 @@ export function PRReviewPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
       return
     }
 
+    let cancelled = false
+
     const loadDiff = async () => {
       setLoadingDiff(true)
       try {
         const diff = await window.conveyor.pr.getPRFileDiff(pr.number, selectedFile)
-        setFileDiff(diff)
+        if (!cancelled) {
+          setFileDiff(diff)
+        }
       } catch (_error) {
-        setFileDiff(null)
+        if (!cancelled) {
+          setFileDiff(null)
+        }
       } finally {
-        setLoadingDiff(false)
+        if (!cancelled) {
+          setLoadingDiff(false)
+        }
       }
     }
 
     loadDiff()
+
+    return () => {
+      cancelled = true
+    }
   }, [pr.number, selectedFile])
 
   // Filter comments by AI/human

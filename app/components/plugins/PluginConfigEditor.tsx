@@ -1,14 +1,21 @@
 /**
  * Plugin Config Editor
  *
- * Form component for editing plugin settings.
+ * Form component for editing plugin settings and managing permissions.
  * Renders appropriate inputs based on setting type.
  */
 
-import { useState, useMemo, useCallback } from 'react'
-import { Save, RotateCcw, AlertCircle, Check } from 'lucide-react'
-import type { Plugin, PluginSetting } from '@/lib/plugins/plugin-types'
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { Save, RotateCcw, AlertCircle, Check, Shield, ShieldOff, ShieldAlert } from 'lucide-react'
+import type { Plugin, PluginSetting, PluginPermission } from '@/lib/plugins/plugin-types'
 import { pluginSettingsStore } from '@/lib/plugins/plugin-settings-store'
+import {
+  getPermissions,
+  revokePermissions,
+  grantPermissions,
+  describePermission,
+} from '@/lib/plugins/plugin-permissions'
+import { pluginRegistry } from '@/lib/plugins/plugin-loader'
 
 interface PluginConfigEditorProps {
   plugin: Plugin
@@ -106,7 +113,55 @@ export function PluginConfigEditor({ plugin, onClose }: PluginConfigEditorProps)
     setSaveStatus('idle')
   }, [plugin.id, settings, initialValues])
 
-  if (settings.length === 0) {
+  // Get current permissions
+  const [currentPermissions, setCurrentPermissions] = useState<PluginPermission[]>(() =>
+    getPermissions(plugin.id)
+  )
+
+  // Get manifest permissions for context
+  const manifestPermissions = useMemo(() => {
+    const installed = pluginRegistry.get(plugin.id)
+    return installed?.permissions ?? []
+  }, [plugin.id])
+
+  // Refresh permissions when they change
+  useEffect(() => {
+    setCurrentPermissions(getPermissions(plugin.id))
+  }, [plugin.id])
+
+  const handleRevokePermission = useCallback(
+    (permission: PluginPermission) => {
+      // Remove from granted permissions
+      const remaining = currentPermissions.filter((p) => p !== permission)
+      revokePermissions(plugin.id)
+      if (remaining.length > 0) {
+        grantPermissions(plugin.id, remaining)
+      }
+      setCurrentPermissions(remaining)
+    },
+    [plugin.id, currentPermissions]
+  )
+
+  const handleRevokeAll = useCallback(() => {
+    revokePermissions(plugin.id)
+    setCurrentPermissions([])
+  }, [plugin.id])
+
+  const handleRestorePermission = useCallback(
+    (permission: PluginPermission) => {
+      grantPermissions(plugin.id, [permission])
+      setCurrentPermissions((prev) => [...prev, permission])
+    },
+    [plugin.id]
+  )
+
+  const revokedPermissions = manifestPermissions.filter(
+    (p) => !currentPermissions.includes(p)
+  )
+
+  const hasPermissionSection = manifestPermissions.length > 0
+
+  if (settings.length === 0 && !hasPermissionSection) {
     return (
       <div className="plugin-config-empty">
         <p>This plugin has no configurable settings.</p>
@@ -116,48 +171,137 @@ export function PluginConfigEditor({ plugin, onClose }: PluginConfigEditorProps)
 
   return (
     <div className="plugin-config-editor">
-      <div className="plugin-config-form">
-        {settings.map((setting) => (
-          <SettingField
-            key={setting.key}
-            setting={setting}
-            value={values[setting.key]?.value}
-            error={values[setting.key]?.error}
-            onChange={(value) => handleChange(setting.key, value)}
-          />
-        ))}
-      </div>
+      {/* Permissions Section */}
+      {hasPermissionSection && (
+        <div className="plugin-permissions-section">
+          <div className="plugin-permissions-header">
+            <h3>
+              <Shield size={16} />
+              Permissions
+            </h3>
+            {currentPermissions.length > 0 && (
+              <button
+                className="plugin-revoke-all-button"
+                onClick={handleRevokeAll}
+                title="Revoke all permissions"
+              >
+                <ShieldOff size={12} />
+                Revoke All
+              </button>
+            )}
+          </div>
 
-      <div className="plugin-config-actions">
-        <button
-          className="plugin-config-button secondary"
-          onClick={handleReset}
-          title="Reset all settings to defaults"
-        >
-          <RotateCcw size={14} />
-          Reset
-        </button>
-        <button
-          className="plugin-config-button primary"
-          onClick={handleSave}
-          disabled={!hasChanges || hasErrors}
-          title={hasErrors ? 'Fix errors before saving' : 'Save changes'}
-        >
-          {saveStatus === 'saving' ? (
-            'Saving...'
-          ) : saveStatus === 'saved' ? (
-            <>
-              <Check size={14} />
-              Saved
-            </>
-          ) : (
-            <>
-              <Save size={14} />
-              Save
-            </>
+          <p className="plugin-permissions-description">
+            Manage the permissions granted to this plugin. Revoking permissions may limit functionality.
+          </p>
+
+          <div className="plugin-permissions-list">
+            {/* Active Permissions */}
+            {currentPermissions.map((permission) => (
+              <div key={permission} className="plugin-permission-item active">
+                <div className="plugin-permission-info">
+                  <Shield size={14} className="plugin-permission-icon granted" />
+                  <div>
+                    <span className="plugin-permission-name">{permission}</span>
+                    <span className="plugin-permission-desc">
+                      {describePermission(permission)}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  className="plugin-permission-action revoke"
+                  onClick={() => handleRevokePermission(permission)}
+                  title="Revoke this permission"
+                >
+                  <ShieldOff size={12} />
+                  Revoke
+                </button>
+              </div>
+            ))}
+
+            {/* Revoked Permissions */}
+            {revokedPermissions.map((permission) => (
+              <div key={permission} className="plugin-permission-item revoked">
+                <div className="plugin-permission-info">
+                  <ShieldAlert size={14} className="plugin-permission-icon revoked" />
+                  <div>
+                    <span className="plugin-permission-name">{permission}</span>
+                    <span className="plugin-permission-desc">
+                      {describePermission(permission)}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  className="plugin-permission-action restore"
+                  onClick={() => handleRestorePermission(permission)}
+                  title="Restore this permission"
+                >
+                  <Shield size={12} />
+                  Restore
+                </button>
+              </div>
+            ))}
+
+            {currentPermissions.length === 0 && revokedPermissions.length === 0 && (
+              <div className="plugin-permissions-empty">
+                This plugin has no permissions configured.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Settings Section */}
+      {settings.length > 0 && (
+        <>
+          {hasPermissionSection && (
+            <div className="plugin-config-divider" />
           )}
-        </button>
-      </div>
+
+          <div className="plugin-config-form">
+            {settings.map((setting) => (
+              <SettingField
+                key={setting.key}
+                setting={setting}
+                value={values[setting.key]?.value}
+                error={values[setting.key]?.error}
+                onChange={(value) => handleChange(setting.key, value)}
+              />
+            ))}
+          </div>
+
+          <div className="plugin-config-actions">
+            <button
+              className="plugin-config-button secondary"
+              onClick={handleReset}
+              title="Reset all settings to defaults"
+            >
+              <RotateCcw size={14} />
+              Reset
+            </button>
+            <button
+              className="plugin-config-button primary"
+              onClick={handleSave}
+              disabled={!hasChanges || hasErrors}
+              title={hasErrors ? 'Fix errors before saving' : 'Save changes'}
+            >
+              {saveStatus === 'saving' ? (
+                'Saving...'
+              ) : saveStatus === 'saved' ? (
+                <>
+                  <Check size={14} />
+                  Saved
+                </>
+              ) : (
+                <>
+                  <Save size={14} />
+                  Save
+                </>
+              )}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }
