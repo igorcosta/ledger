@@ -132,12 +132,12 @@ interface PluginPanelContainerProps {
 
 export function PluginPanelContainer({
   pluginId,
-  _instanceId,
-  _data,
+  instanceId,
+  data,
   onClose,
 }: PluginPanelContainerProps) {
   const [_error, setError] = useState<Error | null>(null)
-  const _repoPath = useRepositoryStore((s) => s.repoPath)
+  const repoPath = useRepositoryStore((s) => s.repoPath)
 
   // Create context before any early returns to satisfy React hooks rules
   const context = useMemo(() => createFullPluginContext(pluginId), [pluginId])
@@ -164,6 +164,7 @@ export function PluginPanelContainer({
       <div
         className={`plugin-panel ${sizeClass} ${positionClass}`}
         onClick={(e) => e.stopPropagation()}
+        data-plugin-panel-instance={instanceId}
       >
         <div className="plugin-panel-header">
           <h4 className="plugin-panel-title">{panelPlugin.title}</h4>

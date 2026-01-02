@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { X, Settings2 } from 'lucide-react'
 import { usePluginStore } from '@/app/stores/plugin-store'
+import './repo-switcher.css'
 
 interface RepoInfo {
   id: string

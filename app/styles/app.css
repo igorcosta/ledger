@@ -24,6 +24,10 @@
   --border: #cccccc;
   --border-subtle: #dddddd;
 
+  /* Compatibility aliases (plugin system uses these names) */
+  --border-color: var(--border);
+  --accent-color: var(--accent);
+
   /* Semantic badge/status colors - Light mode */
   --success-bg: #d4edda;
   --success-text: #155724;
@@ -78,6 +82,10 @@
 
   --border: #404040;
   --border-subtle: #333333;
+
+  /* Compatibility aliases (plugin system uses these names) */
+  --border-color: var(--border);
+  --accent-color: var(--accent);
 
   /* Semantic badge/status colors - Dark mode */
   --success-bg: #1e3a1e;
