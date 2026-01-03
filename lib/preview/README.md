@@ -2,6 +2,35 @@
 
 Extensible preview system for viewing branches, PRs, and worktrees in the browser.
 
+## Provider Priority
+
+```
+1. Laravel  → Herd (.test) or artisan serve (ports)
+2. Rails    → puma-dev (.test) or bin/dev (ports)
+3. npm-dev  → npm run dev (ports) - LAST, catches pure JS apps
+```
+
+**Why npm-dev is last:** Laravel/Rails apps have `package.json` too, but we want the proper PHP/Ruby server, not `npm run dev`.
+
+## Smart Asset Handling
+
+The key insight: **symlinked `public/build/` breaks if the branch has frontend changes**.
+
+```
+Branch has changes in:
+├── app/Controllers/        → Just serve, symlink assets ✓
+├── resources/js/           → Must npm run build! ⚠️
+└── app/javascript/         → Must build! ⚠️
+```
+
+**Detection:** We check `git diff` for frontend file patterns:
+- Laravel: `resources/js/`, `resources/css/`, `vite.config.js`
+- Rails: `app/javascript/`, `app/assets/`, `config/importmap.rb`
+
+**Behavior:**
+- No frontend changes → Symlink `public/build/` (instant)
+- Has frontend changes → Run `npm run build` (correct but slower)
+
 ## Quick Start
 
 The `npm-dev` provider works out of the box for any JS/TS project:

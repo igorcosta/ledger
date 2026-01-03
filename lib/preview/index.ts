@@ -39,6 +39,7 @@ export { previewRegistry, type ProviderWithAvailability } from './preview-regist
 // Built-in Providers
 import * as npmDevProvider from './providers/npm-dev-provider'
 import { railsProvider } from './providers/rails-provider'
+import { laravelProvider } from './providers/laravel-provider'
 
 // Provider wrapper for npm-dev (conforms to PreviewProvider interface)
 import type { PreviewProvider, CreateWorktreeFn } from './preview-types'
@@ -79,25 +80,34 @@ export {
 
 /**
  * Initialize the preview system with built-in providers
+ *
+ * Provider priority (first compatible wins):
+ * 1. Laravel (Herd → artisan serve)
+ * 2. Rails (puma-dev → bin/dev)
+ * 3. npm-dev (universal JS/TS fallback)
+ *
+ * Note: npm-dev is LAST because Laravel/Rails apps also have package.json
+ * but we want to use the proper server (PHP/Ruby), not npm run dev.
  */
 export function initializePreviewProviders(): void {
   // Import here to avoid circular dependencies
   const { previewRegistry } = require('./preview-registry')
 
-  // Register built-in providers
-  // Order matters - first compatible provider is used for "auto" preview
+  // Register built-in providers in priority order
   
-  // 1. Rails provider (uses puma-dev for .test domains when available)
+  // 1. Laravel (Herd for .test domains, artisan serve fallback)
+  previewRegistry.register(laravelProvider)
+
+  // 2. Rails (puma-dev for .test domains, bin/dev fallback)
   previewRegistry.register(railsProvider)
 
-  // 2. npm-dev provider (universal JS/TS, fallback for most projects)
+  // 3. npm-dev - LAST because it matches anything with package.json
+  //    Only use for pure JS apps (React, Vue, Next.js, etc.)
   previewRegistry.register(npmDevPreviewProvider)
-
-  // Note: Herd provider would be registered here too once refactored
-  // previewRegistry.register(herdPreviewProvider)
 
   console.info('[Preview] Initialized with built-in providers:', previewRegistry.getIds())
 }
 
-// Re-export Rails provider for direct use
+// Re-export providers for direct use
 export { railsProvider }
+export { laravelProvider }

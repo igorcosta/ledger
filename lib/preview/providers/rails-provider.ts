@@ -168,12 +168,111 @@ function getNextPort(): number {
 // Worktree Setup
 // ============================================================================
 
+// Frontend file patterns that indicate JS/CSS changes need compilation
+const RAILS_FRONTEND_PATTERNS = [
+  'app/javascript/',      // Rails 7+ default
+  'app/assets/',          // Sprockets (older Rails)
+  'app/frontend/',        // Alternative convention
+  'package.json',
+  'package-lock.json',
+  'yarn.lock',
+  'bun.lockb',
+  'config/importmap.rb',  // Importmap Rails
+  'esbuild.config.js',    // jsbundling-rails with esbuild
+  'rollup.config.js',     // jsbundling-rails with rollup
+  'tailwind.config.js',   // Tailwind CSS
+  'postcss.config.js',
+]
+
+/**
+ * Check if the worktree has frontend changes compared to main repo
+ */
+async function hasRailsFrontendChanges(worktreePath: string, mainRepoPath: string): Promise<boolean> {
+  try {
+    const { stdout: branchOutput } = await execAsync('git rev-parse --abbrev-ref HEAD', {
+      cwd: worktreePath,
+    })
+    const branch = branchOutput.trim()
+
+    const { stdout: mainBranchOutput } = await execAsync(
+      'git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null || echo "origin/main"',
+      { cwd: mainRepoPath }
+    )
+    const mainBranch = mainBranchOutput.trim().replace('origin/', '')
+
+    const { stdout: diffOutput } = await execAsync(
+      `git diff --name-only ${mainBranch}...${branch}`,
+      { cwd: mainRepoPath }
+    )
+
+    const changedFiles = diffOutput.trim().split('\n').filter(Boolean)
+
+    for (const file of changedFiles) {
+      for (const pattern of RAILS_FRONTEND_PATTERNS) {
+        if (file.startsWith(pattern) || file === pattern.replace('/', '')) {
+          console.log(`[Rails] Frontend change detected: ${file}`)
+          return true
+        }
+      }
+    }
+
+    return false
+  } catch (error) {
+    console.warn(`[Rails] Could not detect frontend changes: ${(error as Error).message}`)
+    return true // Assume changes (safer)
+  }
+}
+
+/**
+ * Build Rails frontend assets
+ */
+async function buildRailsAssets(worktreePath: string): Promise<{ success: boolean; message: string }> {
+  try {
+    // Check what build system is used
+    const hasYarn = fs.existsSync(path.join(worktreePath, 'yarn.lock'))
+    const hasBun = fs.existsSync(path.join(worktreePath, 'bun.lockb'))
+    const packageManager = hasBun ? 'bun' : hasYarn ? 'yarn' : 'npm'
+
+    // Try rails assets:precompile first (works for Sprockets)
+    try {
+      await execAsync('bundle exec rails assets:precompile', {
+        cwd: worktreePath,
+        timeout: 120000,
+        env: { ...process.env, RAILS_ENV: 'development' },
+      })
+      return { success: true, message: 'Rails assets precompiled' }
+    } catch {
+      // Fall back to npm/yarn build
+    }
+
+    // Try npm/yarn/bun run build
+    const pkgPath = path.join(worktreePath, 'package.json')
+    if (fs.existsSync(pkgPath)) {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'))
+      if (pkg.scripts?.build) {
+        await execAsync(`${packageManager} run build`, {
+          cwd: worktreePath,
+          timeout: 120000,
+        })
+        return { success: true, message: `Assets built with ${packageManager}` }
+      }
+    }
+
+    return { success: true, message: 'No build step needed' }
+  } catch (error) {
+    return {
+      success: false,
+      message: `Asset build failed: ${(error as Error).message}`,
+    }
+  }
+}
+
 /**
  * Setup a Rails worktree for development
  *
  * DHH approach:
  * - Symlink vendor/bundle (bundled gems)
- * - Symlink node_modules (JS deps)
+ * - Symlink node_modules (JS deps) - UNLESS frontend changes
  * - Copy database.yml (might need different DB)
  * - Symlink master.key (for credentials)
  * - Don't run full bin/setup (too slow for preview)
@@ -181,10 +280,18 @@ function getNextPort(): number {
 async function setupRailsWorktree(
   worktreePath: string,
   mainRepoPath: string
-): Promise<{ success: boolean; message: string; warnings: string[] }> {
+): Promise<{ success: boolean; message: string; warnings: string[]; needsBuild: boolean }> {
   const warnings: string[] = []
+  let needsBuild = false
 
   try {
+    // 0. Check for frontend changes
+    const hasFrontend = await hasRailsFrontendChanges(worktreePath, mainRepoPath)
+    if (hasFrontend) {
+      needsBuild = true
+      warnings.push('Frontend changes detected - will build assets')
+    }
+
     // 1. Symlink vendor/bundle (share gems between worktrees)
     const worktreeVendor = path.join(worktreePath, 'vendor', 'bundle')
     const mainVendor = path.join(mainRepoPath, 'vendor', 'bundle')
@@ -300,12 +407,14 @@ async function setupRailsWorktree(
       success: true,
       message: 'Rails worktree setup complete',
       warnings,
+      needsBuild,
     }
   } catch (error) {
     return {
       success: false,
       message: `Setup failed: ${(error as Error).message}`,
       warnings,
+      needsBuild: false,
     }
   }
 }
@@ -456,7 +565,16 @@ export const railsProvider: PreviewProvider = {
 
     // Setup worktree
     const setupResult = await setupRailsWorktree(worktreePath, mainRepoPath)
-    const warnings = setupResult.warnings
+    let warnings = setupResult.warnings
+
+    // Build assets if needed (frontend changes detected)
+    if (setupResult.needsBuild) {
+      const buildResult = await buildRailsAssets(worktreePath)
+      if (!buildResult.success) {
+        warnings = [...warnings, buildResult.message]
+        // Continue anyway - app might work without fresh assets
+      }
+    }
 
     // Check for puma-dev
     const hasPumaDev = await isPumaDevInstalled()
