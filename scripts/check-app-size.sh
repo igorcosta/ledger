@@ -30,3 +30,4 @@ fi
 
 echo "✅ App size OK (under ${MAX_SIZE_MB}MB)"
 
+

@@ -29,3 +29,4 @@
 - Update README download links (already generic to Releases).
 - Notarization (mac) is disabled in config; enable when credentials are available.
 
+

@@ -24,6 +24,7 @@ export interface EditorRouterProps {
   currentBranch: string
   switching?: boolean
   deleting?: boolean
+  renaming?: boolean
   onStatusChange?: (status: StatusMessage | null) => void
   onRefresh?: () => Promise<void>
   onClearFocus?: () => void
@@ -31,6 +32,7 @@ export interface EditorRouterProps {
   onCheckoutRemoteBranch?: (branch: Branch) => void
   onCheckoutWorktree?: (worktree: Worktree) => void
   onDeleteBranch?: (branch: Branch) => void
+  onRenameBranch?: (branch: Branch, newName: string) => void
   onDeleteRemoteBranch?: (branch: Branch) => void
   onOpenStaging?: () => void
   branches?: Branch[]
@@ -48,6 +50,7 @@ export function EditorRouter({
   currentBranch,
   switching,
   deleting,
+  renaming,
   onStatusChange,
   onRefresh,
   onClearFocus,
@@ -55,6 +58,7 @@ export function EditorRouter({
   onCheckoutRemoteBranch,
   onCheckoutWorktree,
   onDeleteBranch,
+  onRenameBranch,
   onDeleteRemoteBranch,
   onOpenStaging,
   branches,
@@ -79,9 +83,11 @@ export function EditorRouter({
           onStatusChange={onStatusChange}
           onCheckoutBranch={onCheckoutBranch}
           onDeleteBranch={onDeleteBranch}
+          onRenameBranch={onRenameBranch}
           onOpenStaging={onOpenStaging}
           switching={switching}
           deleting={deleting}
+          renaming={renaming}
         />
       )
     }
@@ -228,6 +234,6 @@ export function EditorRouter({
   }
 }
 
-// Alias for backwards compatibility
+// Alternative export name
 export { EditorRouter as SidebarDetailPanel }
 export type { EditorRouterProps as SidebarDetailPanelProps }

@@ -92,6 +92,7 @@ const electronAPI = {
   checkoutBranch: (branchName: string) => ipcRenderer.invoke('checkout-branch', branchName),
   createBranch: (branchName: string, checkout?: boolean) => ipcRenderer.invoke('create-branch', branchName, checkout),
   deleteBranch: (branchName: string, force?: boolean) => ipcRenderer.invoke('delete-branch', branchName, force),
+  renameBranch: (oldName: string, newName: string) => ipcRenderer.invoke('rename-branch', oldName, newName),
   deleteRemoteBranch: (branchName: string) => ipcRenderer.invoke('delete-remote-branch', branchName),
   pushBranch: (branchName?: string, setUpstream?: boolean) =>
     ipcRenderer.invoke('push-branch', branchName, setUpstream),

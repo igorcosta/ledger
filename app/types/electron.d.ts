@@ -36,10 +36,16 @@ export interface Worktree {
   changedFileCount: number
   additions: number
   deletions: number
-  // For ordering
-  lastModified: string // Directory mtime (ISO string)
-  // Activity tracking
+  // Directory modification time (used for sorting worktrees by creation order)
+  lastModified: string
+  // Activity tracking - dual signals for reliable detection
   activityStatus: WorktreeActivityStatus // 'active' | 'recent' | 'stale' | 'unknown'
+  /** Most recent file modification time in worktree (filesystem level) */
+  lastFileModified: string
+  /** Last git activity: commit time or working directory change time */
+  lastGitActivity: string
+  /** Source of activity status: 'file' | 'git' | 'both' */
+  activitySource: 'file' | 'git' | 'both'
   agentTaskHint: string | null // The agent's current task/prompt if available
 }
 
@@ -421,6 +427,7 @@ export interface ElectronAPI {
   checkoutBranch: (branchName: string) => Promise<CheckoutResult>
   createBranch: (branchName: string, checkout?: boolean) => Promise<{ success: boolean; message: string }>
   deleteBranch: (branchName: string, force?: boolean) => Promise<{ success: boolean; message: string }>
+  renameBranch: (oldName: string, newName: string) => Promise<{ success: boolean; message: string }>
   deleteRemoteBranch: (branchName: string) => Promise<{ success: boolean; message: string }>
   pushBranch: (branchName?: string, setUpstream?: boolean) => Promise<{ success: boolean; message: string }>
   checkoutRemoteBranch: (remoteBranch: string) => Promise<CheckoutResult>

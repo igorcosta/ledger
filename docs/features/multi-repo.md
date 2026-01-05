@@ -178,3 +178,4 @@ The goal: "single repo" is just the state when `manager.contexts.size === 1`, no
 | `app/components/plugins/example-components/RepositoryManagerPanel.tsx` | UI panel |
 | `app/components/RepoSwitcher.tsx` | Header repo chip |
 
+
