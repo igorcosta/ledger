@@ -234,8 +234,8 @@ export function WorktreeDetailPanel({
         )}
       </div>
 
-      {/* Show agent task hint for Cursor agents */}
-      {worktree.agent === 'cursor' && worktree.agentTaskHint && (
+      {/* Show agent task hint for AI agents (Cursor, Claude Code) */}
+      {(worktree.agent === 'cursor' || worktree.agent === 'claude') && worktree.agentTaskHint && (
         <div className="agent-task-callout">
           <div className="agent-task-header">
             <span className="agent-task-icon">🤖</span>

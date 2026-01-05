@@ -258,6 +258,83 @@ async function getCursorAgentTaskHint(worktreePath: string): Promise<string | nu
 }
 
 /**
+ * Get agent task hint from Claude Code session files
+ * Claude Code stores sessions in ~/.claude/projects/{encoded-path}/*.jsonl
+ */
+async function getClaudeCodeAgentTaskHint(worktreePath: string): Promise<string | null> {
+  try {
+    const homeDir = process.env.HOME || ''
+    const projectsDir = path.join(homeDir, '.claude', 'projects')
+
+    // Check if the projects directory exists
+    if (!fs.existsSync(projectsDir)) return null
+
+    // Claude Code encodes paths by replacing / with - (e.g., /Users/foo/bar -> -Users-foo-bar)
+    const encodedPath = worktreePath.replace(/\//g, '-')
+    const projectFolder = path.join(projectsDir, encodedPath)
+
+    // Check if this worktree has a Claude Code project folder
+    if (!fs.existsSync(projectFolder)) return null
+
+    // Get session files sorted by modification time (newest first)
+    // Session files are UUIDs.jsonl, skip agent-*.jsonl files
+    const files = fs
+      .readdirSync(projectFolder)
+      .filter((f) => f.endsWith('.jsonl') && !f.startsWith('agent-'))
+      .map((f) => ({
+        name: f,
+        path: path.join(projectFolder, f),
+        mtime: fs.statSync(path.join(projectFolder, f)).mtime.getTime(),
+      }))
+      .sort((a, b) => b.mtime - a.mtime)
+
+    // Check the most recent session file
+    for (const file of files.slice(0, 3)) {
+      // Only check 3 most recent sessions
+      try {
+        const content = fs.readFileSync(file.path, 'utf-8')
+        const lines = content.split('\n').filter(Boolean)
+
+        // Find the first user message in the session
+        for (const line of lines) {
+          try {
+            const entry = JSON.parse(line)
+
+            // Look for user messages
+            if (entry.type === 'user' && entry.message?.content) {
+              let userContent = entry.message.content
+
+              // Strip system instruction tags if present
+              userContent = userContent.replace(/<system[_-]?instruction>[\s\S]*?<\/system[_-]?instruction>/gi, '')
+
+              // Get the actual user query, trimming whitespace
+              const trimmed = userContent.trim()
+              if (!trimmed) continue
+
+              // Get first meaningful line
+              const firstLine = trimmed.split('\n')[0].trim()
+              if (!firstLine) continue
+
+              return firstLine.slice(0, 60) + (firstLine.length > 60 ? '…' : '')
+            }
+          } catch {
+            // Skip malformed lines
+            continue
+          }
+        }
+      } catch {
+        // Skip unreadable files
+        continue
+      }
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Get enhanced worktrees with agent detection and metadata
  */
 export async function getEnhancedWorktrees(ctx: RepositoryContext): Promise<EnhancedWorktree[]> {
@@ -273,7 +350,9 @@ export async function getEnhancedWorktrees(ctx: RepositoryContext): Promise<Enha
       getWorktreeDiffStats(wt.path),
       getWorktreeCommitMessage(wt.path),
       getDirectoryMtime(wt.path),
-      agent === 'cursor' ? getCursorAgentTaskHint(wt.path) : Promise.resolve(null),
+      agent === 'cursor' ? getCursorAgentTaskHint(wt.path) :
+      agent === 'claude' ? getClaudeCodeAgentTaskHint(wt.path) :
+      Promise.resolve(null),
     ])
 
     const contextHint = getContextHint(wt.branch, diffStats.changedFiles, commitMessage)
