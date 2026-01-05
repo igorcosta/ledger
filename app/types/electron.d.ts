@@ -231,6 +231,8 @@ export interface StagingDiffHunk {
   newStart: number
   newLines: number
   lines: StagingDiffLine[]
+  /** Raw patch text for this hunk (used for git apply) */
+  rawPatch: string
 }
 
 export interface StagingDiffLine {
@@ -238,6 +240,8 @@ export interface StagingDiffLine {
   content: string
   oldLineNumber?: number
   newLineNumber?: number
+  /** Index of this line within the hunk (0-based, for selection) */
+  lineIndex: number
 }
 
 export interface StagingFileDiff {
@@ -523,6 +527,14 @@ export interface ElectronAPI {
     hadConflicts?: boolean
     autoStashed?: boolean
   }>
+  // Hunk-level staging operations
+  stageHunk: (filePath: string, hunkIndex: number) => Promise<{ success: boolean; message: string }>
+  unstageHunk: (filePath: string, hunkIndex: number) => Promise<{ success: boolean; message: string }>
+  discardHunk: (filePath: string, hunkIndex: number) => Promise<{ success: boolean; message: string }>
+  // Line-level staging operations
+  stageLines: (filePath: string, hunkIndex: number, lineIndices: number[]) => Promise<{ success: boolean; message: string }>
+  unstageLines: (filePath: string, hunkIndex: number, lineIndices: number[]) => Promise<{ success: boolean; message: string }>
+  discardLines: (filePath: string, hunkIndex: number, lineIndices: number[]) => Promise<{ success: boolean; message: string }>
   // PR Review operations
   getPRDetail: (prNumber: number) => Promise<PRDetail | null>
   getPRReviewComments: (prNumber: number) => Promise<PRReviewComment[]>

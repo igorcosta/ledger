@@ -23,4 +23,12 @@ export {
   unstageAll,
   discardFileChanges,
   getFileDiff,
+  // Hunk-level operations
+  stageHunk,
+  unstageHunk,
+  discardHunk,
+  // Line-level operations
+  stageLines,
+  unstageLines,
+  discardLines,
 } from './staging-service'

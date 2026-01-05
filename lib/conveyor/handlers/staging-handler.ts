@@ -8,6 +8,12 @@ import {
   getFileDiff,
   getWorkingStatus,
   getBehindMainCount,
+  stageHunk,
+  unstageHunk,
+  discardHunk,
+  stageLines,
+  unstageLines,
+  discardLines,
 } from '@/lib/main/git-service'
 import { serializeError } from '@/lib/utils/error-helpers'
 
@@ -81,6 +87,56 @@ export const registerStagingHandlers = () => {
       return await getBehindMainCount()
     } catch (_error) {
       return null
+    }
+  })
+
+  // Hunk-level operations
+  handle('stage-hunk', async (filePath: string, hunkIndex: number) => {
+    try {
+      return await stageHunk(filePath, hunkIndex)
+    } catch (error) {
+      return { success: false, message: serializeError(error) }
+    }
+  })
+
+  handle('unstage-hunk', async (filePath: string, hunkIndex: number) => {
+    try {
+      return await unstageHunk(filePath, hunkIndex)
+    } catch (error) {
+      return { success: false, message: serializeError(error) }
+    }
+  })
+
+  handle('discard-hunk', async (filePath: string, hunkIndex: number) => {
+    try {
+      return await discardHunk(filePath, hunkIndex)
+    } catch (error) {
+      return { success: false, message: serializeError(error) }
+    }
+  })
+
+  // Line-level operations
+  handle('stage-lines', async (filePath: string, hunkIndex: number, lineIndices: number[]) => {
+    try {
+      return await stageLines(filePath, hunkIndex, lineIndices)
+    } catch (error) {
+      return { success: false, message: serializeError(error) }
+    }
+  })
+
+  handle('unstage-lines', async (filePath: string, hunkIndex: number, lineIndices: number[]) => {
+    try {
+      return await unstageLines(filePath, hunkIndex, lineIndices)
+    } catch (error) {
+      return { success: false, message: serializeError(error) }
+    }
+  })
+
+  handle('discard-lines', async (filePath: string, hunkIndex: number, lineIndices: number[]) => {
+    try {
+      return await discardLines(filePath, hunkIndex, lineIndices)
+    } catch (error) {
+      return { success: false, message: serializeError(error) }
     }
   })
 }

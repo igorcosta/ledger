@@ -220,6 +220,7 @@ export const StagingDiffLineSchema = z.object({
   content: z.string(),
   oldLineNumber: z.number().optional(),
   newLineNumber: z.number().optional(),
+  lineIndex: z.number(),
 })
 
 export const StagingDiffHunkSchema = z.object({
@@ -229,6 +230,7 @@ export const StagingDiffHunkSchema = z.object({
   newStart: z.number(),
   newLines: z.number(),
   lines: z.array(StagingDiffLineSchema),
+  rawPatch: z.string(),
 })
 
 export const StagingFileDiffSchema = z.object({

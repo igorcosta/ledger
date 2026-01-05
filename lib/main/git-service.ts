@@ -4360,6 +4360,286 @@ export async function discardAllChanges(): Promise<{ success: boolean; message: 
   }
 }
 
+/**
+ * Apply a patch using git apply with stdin via child_process
+ */
+async function applyPatch(
+  targetPath: string,
+  patch: string,
+  args: string[]
+): Promise<void> {
+  const { spawn } = await import('child_process')
+
+  return new Promise((resolve, reject) => {
+    const gitProcess = spawn('git', ['apply', ...args], {
+      cwd: targetPath,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+
+    let stderr = ''
+
+    gitProcess.stderr.on('data', (data) => {
+      stderr += data.toString()
+    })
+
+    gitProcess.on('close', (code) => {
+      if (code === 0) {
+        resolve()
+      } else {
+        reject(new Error(stderr || `git apply failed with code ${code}`))
+      }
+    })
+
+    gitProcess.on('error', (err) => {
+      reject(err)
+    })
+
+    // Write the patch to stdin
+    gitProcess.stdin.write(patch)
+    gitProcess.stdin.end()
+  })
+}
+
+// Stage a single hunk
+export async function stageHunk(
+  filePath: string,
+  hunkIndex: number
+): Promise<{ success: boolean; message: string }> {
+  if (!git || !repoPath) throw new Error('No repository selected')
+
+  try {
+    // Get the current diff to extract the hunk
+    const diff = await getFileDiff(filePath, false)
+    if (!diff) {
+      return { success: false, message: 'Could not get file diff' }
+    }
+
+    if (hunkIndex < 0 || hunkIndex >= diff.hunks.length) {
+      return { success: false, message: `Invalid hunk index: ${hunkIndex}` }
+    }
+
+    const hunk = diff.hunks[hunkIndex]
+    if (!hunk.rawPatch) {
+      return { success: false, message: 'Hunk has no raw patch data' }
+    }
+
+    // Apply the patch to the index
+    await applyPatch(repoPath, hunk.rawPatch, ['--cached'])
+    return { success: true, message: `Staged hunk ${hunkIndex + 1}` }
+  } catch (error) {
+    return { success: false, message: (error as Error).message }
+  }
+}
+
+// Unstage a single hunk
+export async function unstageHunk(
+  filePath: string,
+  hunkIndex: number
+): Promise<{ success: boolean; message: string }> {
+  if (!git || !repoPath) throw new Error('No repository selected')
+
+  try {
+    // Get the staged diff to extract the hunk
+    const diff = await getFileDiff(filePath, true)
+    if (!diff) {
+      return { success: false, message: 'Could not get staged file diff' }
+    }
+
+    if (hunkIndex < 0 || hunkIndex >= diff.hunks.length) {
+      return { success: false, message: `Invalid hunk index: ${hunkIndex}` }
+    }
+
+    const hunk = diff.hunks[hunkIndex]
+    if (!hunk.rawPatch) {
+      return { success: false, message: 'Hunk has no raw patch data' }
+    }
+
+    // Reverse apply the patch from the index
+    await applyPatch(repoPath, hunk.rawPatch, ['--cached', '-R'])
+    return { success: true, message: `Unstaged hunk ${hunkIndex + 1}` }
+  } catch (error) {
+    return { success: false, message: (error as Error).message }
+  }
+}
+
+// Discard a single hunk
+export async function discardHunk(
+  filePath: string,
+  hunkIndex: number
+): Promise<{ success: boolean; message: string }> {
+  if (!git || !repoPath) throw new Error('No repository selected')
+
+  try {
+    // Get the current diff to extract the hunk
+    const diff = await getFileDiff(filePath, false)
+    if (!diff) {
+      return { success: false, message: 'Could not get file diff' }
+    }
+
+    if (hunkIndex < 0 || hunkIndex >= diff.hunks.length) {
+      return { success: false, message: `Invalid hunk index: ${hunkIndex}` }
+    }
+
+    const hunk = diff.hunks[hunkIndex]
+    if (!hunk.rawPatch) {
+      return { success: false, message: 'Hunk has no raw patch data' }
+    }
+
+    // Reverse apply the patch to the working tree
+    await applyPatch(repoPath, hunk.rawPatch, ['-R'])
+    return { success: true, message: `Discarded hunk ${hunkIndex + 1}` }
+  } catch (error) {
+    return { success: false, message: (error as Error).message }
+  }
+}
+
+/**
+ * Build a partial patch from a hunk with only selected lines.
+ */
+function buildPartialPatch(
+  filePath: string,
+  hunk: StagingDiffHunk,
+  selectedLineIndices: number[]
+): string {
+  const selectedSet = new Set(selectedLineIndices)
+
+  const patchLines: string[] = []
+  let oldCount = 0
+  let newCount = 0
+
+  for (const line of hunk.lines) {
+    const isSelected = selectedSet.has(line.lineIndex)
+
+    if (line.type === 'context') {
+      patchLines.push(' ' + line.content)
+      oldCount++
+      newCount++
+    } else if (line.type === 'add') {
+      if (isSelected) {
+        patchLines.push('+' + line.content)
+        newCount++
+      } else {
+        patchLines.push(' ' + line.content)
+        oldCount++
+        newCount++
+      }
+    } else if (line.type === 'delete') {
+      if (isSelected) {
+        patchLines.push('-' + line.content)
+        oldCount++
+      }
+    }
+  }
+
+  const newHeader = `@@ -${hunk.oldStart},${oldCount} +${hunk.newStart},${newCount} @@`
+
+  return (
+    `diff --git a/${filePath} b/${filePath}\n` +
+    `--- a/${filePath}\n` +
+    `+++ b/${filePath}\n` +
+    newHeader +
+    '\n' +
+    patchLines.join('\n') +
+    '\n'
+  )
+}
+
+// Stage specific lines within a hunk
+export async function stageLines(
+  filePath: string,
+  hunkIndex: number,
+  lineIndices: number[]
+): Promise<{ success: boolean; message: string }> {
+  if (!git || !repoPath) throw new Error('No repository selected')
+
+  try {
+    if (lineIndices.length === 0) {
+      return { success: false, message: 'No lines selected' }
+    }
+
+    const diff = await getFileDiff(filePath, false)
+    if (!diff) {
+      return { success: false, message: 'Could not get file diff' }
+    }
+
+    if (hunkIndex < 0 || hunkIndex >= diff.hunks.length) {
+      return { success: false, message: `Invalid hunk index: ${hunkIndex}` }
+    }
+
+    const hunk = diff.hunks[hunkIndex]
+    const partialPatch = buildPartialPatch(filePath, hunk, lineIndices)
+
+    await applyPatch(repoPath, partialPatch, ['--cached'])
+    return { success: true, message: `Staged ${lineIndices.length} line(s)` }
+  } catch (error) {
+    return { success: false, message: (error as Error).message }
+  }
+}
+
+// Unstage specific lines within a hunk
+export async function unstageLines(
+  filePath: string,
+  hunkIndex: number,
+  lineIndices: number[]
+): Promise<{ success: boolean; message: string }> {
+  if (!git || !repoPath) throw new Error('No repository selected')
+
+  try {
+    if (lineIndices.length === 0) {
+      return { success: false, message: 'No lines selected' }
+    }
+
+    const diff = await getFileDiff(filePath, true)
+    if (!diff) {
+      return { success: false, message: 'Could not get staged file diff' }
+    }
+
+    if (hunkIndex < 0 || hunkIndex >= diff.hunks.length) {
+      return { success: false, message: `Invalid hunk index: ${hunkIndex}` }
+    }
+
+    const hunk = diff.hunks[hunkIndex]
+    const partialPatch = buildPartialPatch(filePath, hunk, lineIndices)
+
+    await applyPatch(repoPath, partialPatch, ['--cached', '-R'])
+    return { success: true, message: `Unstaged ${lineIndices.length} line(s)` }
+  } catch (error) {
+    return { success: false, message: (error as Error).message }
+  }
+}
+
+// Discard specific lines within a hunk
+export async function discardLines(
+  filePath: string,
+  hunkIndex: number,
+  lineIndices: number[]
+): Promise<{ success: boolean; message: string }> {
+  if (!git || !repoPath) throw new Error('No repository selected')
+
+  try {
+    if (lineIndices.length === 0) {
+      return { success: false, message: 'No lines selected' }
+    }
+
+    const diff = await getFileDiff(filePath, false)
+    if (!diff) {
+      return { success: false, message: 'Could not get file diff' }
+    }
+
+    if (hunkIndex < 0 || hunkIndex >= diff.hunks.length) {
+      return { success: false, message: `Invalid hunk index: ${hunkIndex}` }
+    }
+
+    const hunk = diff.hunks[hunkIndex]
+    const partialPatch = buildPartialPatch(filePath, hunk, lineIndices)
+
+    await applyPatch(repoPath, partialPatch, ['-R'])
+    return { success: true, message: `Discarded ${lineIndices.length} line(s)` }
+  } catch (error) {
+    return { success: false, message: (error as Error).message }
+  }
+}
+
 // Staging file diff types (for working directory changes)
 export interface StagingDiffHunk {
   header: string
@@ -4368,6 +4648,8 @@ export interface StagingDiffHunk {
   newStart: number
   newLines: number
   lines: StagingDiffLine[]
+  /** Raw patch text for this hunk (used for git apply) */
+  rawPatch: string
 }
 
 export interface StagingDiffLine {
@@ -4375,6 +4657,8 @@ export interface StagingDiffLine {
   content: string
   oldLineNumber?: number
   newLineNumber?: number
+  /** Index of this line within the hunk (0-based, for selection) */
+  lineIndex: number
 }
 
 export interface StagingFileDiff {
@@ -4407,25 +4691,40 @@ export async function getFileDiff(filePath: string, staged: boolean): Promise<St
         const fullPath = path.join(repoPath!, filePath)
         try {
           const content = await fs.promises.readFile(fullPath, 'utf-8')
-          const lines = content.split('\n')
+          const fileLines = content.split('\n')
+
+          // Build raw patch for untracked file
+          const header = `@@ -0,0 +1,${fileLines.length} @@`
+          const patchLines = fileLines.map((l) => '+' + l)
+          const rawPatch =
+            `diff --git a/${filePath} b/${filePath}\n` +
+            `new file mode 100644\n` +
+            `--- /dev/null\n` +
+            `+++ b/${filePath}\n` +
+            header +
+            '\n' +
+            patchLines.join('\n') +
+            '\n'
 
           return {
             filePath,
             status: 'untracked',
             isBinary: false,
-            additions: lines.length,
+            additions: fileLines.length,
             deletions: 0,
             hunks: [
               {
-                header: `@@ -0,0 +1,${lines.length} @@`,
+                header,
                 oldStart: 0,
                 oldLines: 0,
                 newStart: 1,
-                newLines: lines.length,
-                lines: lines.map((line, idx) => ({
+                newLines: fileLines.length,
+                rawPatch,
+                lines: fileLines.map((line, idx) => ({
                   type: 'add' as const,
                   content: line,
                   newLineNumber: idx + 1,
+                  lineIndex: idx,
                 })),
               },
             ],
@@ -4451,6 +4750,7 @@ function parseDiff(diffOutput: string, filePath: string): StagingFileDiff {
   const lines = diffOutput.split('\n')
   const hunks: StagingDiffHunk[] = []
   let currentHunk: StagingDiffHunk | null = null
+  let currentHunkRawLines: string[] = []
   let oldLineNum = 0
   let newLineNum = 0
   let additions = 0
@@ -4458,6 +4758,17 @@ function parseDiff(diffOutput: string, filePath: string): StagingFileDiff {
   let isBinary = false
   let status: StagingFileDiff['status'] = 'modified'
   let oldPath: string | undefined
+
+  // Extract file header lines for building rawPatch
+  let fileHeader = ''
+  for (const line of lines) {
+    if (line.startsWith('diff --git') || line.startsWith('---') || line.startsWith('+++')) {
+      fileHeader += line + '\n'
+    }
+    if (line.startsWith('+++')) break
+  }
+
+  let lineIndex = 0
 
   for (const line of lines) {
     // Check for binary file
@@ -4488,12 +4799,16 @@ function parseDiff(diffOutput: string, filePath: string): StagingFileDiff {
     // Parse hunk header
     const hunkMatch = line.match(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/)
     if (hunkMatch) {
+      // Finalize previous hunk
       if (currentHunk) {
+        currentHunk.rawPatch = fileHeader + currentHunkRawLines.join('\n') + '\n'
         hunks.push(currentHunk)
       }
 
       oldLineNum = parseInt(hunkMatch[1])
       newLineNum = parseInt(hunkMatch[3])
+      lineIndex = 0
+      currentHunkRawLines = [line]
 
       currentHunk = {
         header: line,
@@ -4502,6 +4817,7 @@ function parseDiff(diffOutput: string, filePath: string): StagingFileDiff {
         newStart: newLineNum,
         newLines: parseInt(hunkMatch[4] || '1'),
         lines: [],
+        rawPatch: '', // Will be set when hunk is finalized
       }
       continue
     }
@@ -4509,25 +4825,31 @@ function parseDiff(diffOutput: string, filePath: string): StagingFileDiff {
     // Parse diff lines
     if (currentHunk) {
       if (line.startsWith('+') && !line.startsWith('+++')) {
+        currentHunkRawLines.push(line)
         additions++
         currentHunk.lines.push({
           type: 'add',
           content: line.slice(1),
           newLineNumber: newLineNum++,
+          lineIndex: lineIndex++,
         })
       } else if (line.startsWith('-') && !line.startsWith('---')) {
+        currentHunkRawLines.push(line)
         deletions++
         currentHunk.lines.push({
           type: 'delete',
           content: line.slice(1),
           oldLineNumber: oldLineNum++,
+          lineIndex: lineIndex++,
         })
       } else if (line.startsWith(' ')) {
+        currentHunkRawLines.push(line)
         currentHunk.lines.push({
           type: 'context',
           content: line.slice(1),
           oldLineNumber: oldLineNum++,
           newLineNumber: newLineNum++,
+          lineIndex: lineIndex++,
         })
       }
     }
@@ -4535,6 +4857,7 @@ function parseDiff(diffOutput: string, filePath: string): StagingFileDiff {
 
   // Don't forget the last hunk
   if (currentHunk) {
+    currentHunk.rawPatch = fileHeader + currentHunkRawLines.join('\n') + '\n'
     hunks.push(currentHunk)
   }
 
@@ -4708,25 +5031,40 @@ export async function getFileDiffInWorktree(
         const fullPath = path.join(worktreePath, filePath)
         try {
           const content = await fs.promises.readFile(fullPath, 'utf-8')
-          const lines = content.split('\n')
+          const fileLines = content.split('\n')
+
+          // Build raw patch for untracked file
+          const header = `@@ -0,0 +1,${fileLines.length} @@`
+          const patchLines = fileLines.map((l) => '+' + l)
+          const rawPatch =
+            `diff --git a/${filePath} b/${filePath}\n` +
+            `new file mode 100644\n` +
+            `--- /dev/null\n` +
+            `+++ b/${filePath}\n` +
+            header +
+            '\n' +
+            patchLines.join('\n') +
+            '\n'
 
           return {
             filePath,
             status: 'untracked',
             isBinary: false,
-            additions: lines.length,
+            additions: fileLines.length,
             deletions: 0,
             hunks: [
               {
-                header: `@@ -0,0 +1,${lines.length} @@`,
+                header,
                 oldStart: 0,
                 oldLines: 0,
                 newStart: 1,
-                newLines: lines.length,
-                lines: lines.map((line, idx) => ({
+                newLines: fileLines.length,
+                rawPatch,
+                lines: fileLines.map((line, idx) => ({
                   type: 'add' as const,
                   content: line,
                   newLineNumber: idx + 1,
+                  lineIndex: idx,
                 })),
               },
             ],

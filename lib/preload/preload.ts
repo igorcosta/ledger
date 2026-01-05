@@ -177,6 +177,17 @@ const electronAPI = {
   commitChanges: (message: string, description?: string, force?: boolean) =>
     ipcRenderer.invoke('commit-changes', message, description, force),
   pullCurrentBranch: () => ipcRenderer.invoke('pull-current-branch'),
+  // Hunk-level staging operations
+  stageHunk: (filePath: string, hunkIndex: number) => ipcRenderer.invoke('stage-hunk', filePath, hunkIndex),
+  unstageHunk: (filePath: string, hunkIndex: number) => ipcRenderer.invoke('unstage-hunk', filePath, hunkIndex),
+  discardHunk: (filePath: string, hunkIndex: number) => ipcRenderer.invoke('discard-hunk', filePath, hunkIndex),
+  // Line-level staging operations
+  stageLines: (filePath: string, hunkIndex: number, lineIndices: number[]) =>
+    ipcRenderer.invoke('stage-lines', filePath, hunkIndex, lineIndices),
+  unstageLines: (filePath: string, hunkIndex: number, lineIndices: number[]) =>
+    ipcRenderer.invoke('unstage-lines', filePath, hunkIndex, lineIndices),
+  discardLines: (filePath: string, hunkIndex: number, lineIndices: number[]) =>
+    ipcRenderer.invoke('discard-lines', filePath, hunkIndex, lineIndices),
   // PR Review operations
   getPRDetail: (prNumber: number) => ipcRenderer.invoke('get-pr-detail', prNumber),
   getPRReviewComments: (prNumber: number) => ipcRenderer.invoke('get-pr-review-comments', prNumber),

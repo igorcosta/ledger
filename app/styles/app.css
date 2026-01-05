@@ -2708,14 +2708,185 @@ body,
 }
 
 .staging-hunk-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 4px 16px;
   background: var(--bg-tertiary);
   color: var(--text-muted);
   font-size: 10px;
 }
 
+.staging-hunk-header-text {
+  flex: 1;
+  font-family: 'JetBrains Mono', 'SF Mono', Monaco, monospace;
+}
+
+.staging-hunk-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.staging-hunk:hover .staging-hunk-actions {
+  opacity: 1;
+}
+
+.hunk-action-btn {
+  padding: 2px 8px;
+  font-size: 10px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.hunk-action-btn.stage {
+  background: var(--success);
+  color: white;
+}
+
+.hunk-action-btn.stage:hover {
+  background: color-mix(in srgb, var(--success) 85%, white);
+}
+
+.hunk-action-btn.unstage {
+  background: var(--warning);
+  color: white;
+}
+
+.hunk-action-btn.unstage:hover {
+  background: color-mix(in srgb, var(--warning) 85%, white);
+}
+
+.hunk-action-btn.discard {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.hunk-action-btn.discard:hover {
+  background: var(--error);
+  color: white;
+  border-color: var(--error);
+}
+
+.hunk-action-btn.discard.confirm {
+  background: var(--error);
+  color: white;
+  border-color: var(--error);
+  animation: pulse 0.5s ease infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 .staging-hunk-lines {
   padding: 0;
+}
+
+/* Line selection styling */
+.staging-diff-line.selectable {
+  cursor: pointer;
+}
+
+.staging-diff-line.selectable:hover {
+  background: color-mix(in srgb, var(--accent) 15%, var(--bg-secondary));
+}
+
+.staging-diff-line.selected {
+  background: color-mix(in srgb, var(--accent) 25%, var(--bg-secondary)) !important;
+  border-left: 2px solid var(--accent);
+}
+
+.staging-diff-line.diff-line-add.selected {
+  background: color-mix(in srgb, var(--accent) 25%, var(--diff-add-bg)) !important;
+}
+
+.staging-diff-line.diff-line-delete.selected {
+  background: color-mix(in srgb, var(--accent) 25%, var(--diff-remove-bg)) !important;
+}
+
+/* Line Selection Action Bar */
+.line-selection-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 12px;
+}
+
+.line-selection-count {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.line-selection-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.line-action-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.line-action-btn.stage {
+  background: var(--success);
+  color: white;
+}
+
+.line-action-btn.stage:hover {
+  background: color-mix(in srgb, var(--success) 85%, white);
+}
+
+.line-action-btn.unstage {
+  background: var(--warning);
+  color: white;
+}
+
+.line-action-btn.unstage:hover {
+  background: color-mix(in srgb, var(--warning) 85%, white);
+}
+
+.line-action-btn.discard {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.line-action-btn.discard:hover {
+  background: var(--error);
+  color: white;
+  border-color: var(--error);
+}
+
+.line-action-btn.discard.confirm {
+  background: var(--error);
+  color: white;
+  border-color: var(--error);
+  animation: pulse 0.5s ease infinite;
+}
+
+.line-action-btn.clear {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.line-action-btn.clear:hover {
+  color: var(--text-primary);
 }
 
 .staging-diff-line {
@@ -2741,6 +2912,24 @@ body,
   flex: 1;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* Syntax highlighting in diffs */
+.staging-diff-line .diff-line-content.highlighted {
+  font-family: 'JetBrains Mono', 'SF Mono', Monaco, 'Fira Code', monospace;
+}
+
+.staging-diff-line .diff-line-content.highlighted span {
+  /* Allow Shiki colors to show, but keep readable on diff backgrounds */
+}
+
+/* Ensure Shiki inline spans don't break layout */
+.staging-diff-line .diff-line-content.highlighted code,
+.staging-diff-line .diff-line-content.highlighted pre {
+  display: inline;
+  background: transparent;
+  padding: 0;
+  margin: 0;
 }
 
 .staging-diff-line.diff-line-add {

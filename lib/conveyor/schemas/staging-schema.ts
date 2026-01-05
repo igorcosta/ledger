@@ -52,4 +52,30 @@ export const stagingIpcSchema = {
       baseBranch: z.string(),
     }).nullable(),
   },
+  // Hunk-level operations
+  'stage-hunk': {
+    args: z.tuple([z.string(), z.number()]),
+    return: SuccessResultSchema,
+  },
+  'unstage-hunk': {
+    args: z.tuple([z.string(), z.number()]),
+    return: SuccessResultSchema,
+  },
+  'discard-hunk': {
+    args: z.tuple([z.string(), z.number()]),
+    return: SuccessResultSchema,
+  },
+  // Line-level operations
+  'stage-lines': {
+    args: z.tuple([z.string(), z.number(), z.array(z.number())]),
+    return: SuccessResultSchema,
+  },
+  'unstage-lines': {
+    args: z.tuple([z.string(), z.number(), z.array(z.number())]),
+    return: SuccessResultSchema,
+  },
+  'discard-lines': {
+    args: z.tuple([z.string(), z.number(), z.array(z.number())]),
+    return: SuccessResultSchema,
+  },
 }
