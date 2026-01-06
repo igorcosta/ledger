@@ -232,13 +232,18 @@ export function StagingPanel({ workingStatus, currentBranch, onRefresh, onStatus
     setSelectedLines((prev) => {
       const newSelection = new Map(prev)
 
-      if (shiftKey && lastClickedLine && lastClickedLine.hunkIndex === hunkIndex) {
-        // Shift-click: select range
+      if (shiftKey && lastClickedLine && lastClickedLine.hunkIndex === hunkIndex && fileDiff) {
+        // Shift-click: select range (excluding context lines)
         const start = Math.min(lastClickedLine.lineIndex, lineIndex)
         const end = Math.max(lastClickedLine.lineIndex, lineIndex)
         const hunkSelection = new Set(newSelection.get(hunkIndex) || [])
+        const hunk = fileDiff.hunks[hunkIndex]
         for (let i = start; i <= end; i++) {
-          hunkSelection.add(i)
+          // Only add actionable lines (add/delete), skip context lines
+          const line = hunk?.lines.find((l) => l.lineIndex === i)
+          if (line && line.type !== 'context') {
+            hunkSelection.add(i)
+          }
         }
         newSelection.set(hunkIndex, hunkSelection)
       } else {
@@ -262,9 +267,18 @@ export function StagingPanel({ workingStatus, currentBranch, onRefresh, onStatus
   }
 
   const getSelectedLinesCount = () => {
+    if (!fileDiff) return 0
     let count = 0
-    for (const lines of selectedLines.values()) {
-      count += lines.size
+    for (const [hunkIndex, lineIndices] of selectedLines.entries()) {
+      const hunk = fileDiff.hunks[hunkIndex]
+      if (!hunk) continue
+      // Only count actionable lines (add/delete), not context lines
+      for (const lineIndex of lineIndices) {
+        const line = hunk.lines.find((l) => l.lineIndex === lineIndex)
+        if (line && line.type !== 'context') {
+          count++
+        }
+      }
     }
     return count
   }

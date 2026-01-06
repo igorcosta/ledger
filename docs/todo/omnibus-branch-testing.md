@@ -22,6 +22,11 @@ The following bugs were identified by Cursor Bugbot and fixed:
    - Old Shiki highlighter instance wasn't disposed when theme changed
    - Fix: Old instance is now disposed before creating new one
 
+5. **Shift-click includes context lines (Low)** - Fixed in `CommitCreatePanel.tsx`
+   - Shift-click range selection added all line indices, including non-actionable context lines
+   - `getSelectedLinesCount()` counted context lines, showing inflated count in success message
+   - Fix: Shift-click now filters out context lines; count only includes add/delete lines
+
 ---
 
 ## 1. Branch Renaming
