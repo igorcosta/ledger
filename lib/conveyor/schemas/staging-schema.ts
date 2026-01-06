@@ -78,4 +78,13 @@ export const stagingIpcSchema = {
     args: z.tuple([z.string(), z.number(), z.array(z.number())]),
     return: SuccessResultSchema,
   },
+  // File content operations (for inline editing)
+  'get-file-content': {
+    args: z.tuple([z.string()]),
+    return: z.string().nullable(),
+  },
+  'save-file-content': {
+    args: z.tuple([z.string(), z.string()]),
+    return: SuccessResultSchema,
+  },
 }

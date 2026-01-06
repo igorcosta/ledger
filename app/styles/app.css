@@ -2691,6 +2691,48 @@ body,
   font-size: 11px;
 }
 
+.staging-diff-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Inline Edit Mode */
+.staging-edit-mode {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 200px;
+}
+
+.staging-edit-textarea {
+  flex: 1;
+  width: 100%;
+  min-height: 200px;
+  padding: 12px 16px;
+  border: none;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', 'SF Mono', Monaco, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+}
+
+.staging-edit-textarea:focus {
+  outline: none;
+}
+
+.staging-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-subtle);
+}
+
 .staging-diff-content {
   flex: 1;
   overflow-y: auto;

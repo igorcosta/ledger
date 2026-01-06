@@ -31,4 +31,7 @@ export {
   stageLines,
   unstageLines,
   discardLines,
+  // File content operations (for inline editing)
+  getFileContent,
+  saveFileContent,
 } from './staging-service'

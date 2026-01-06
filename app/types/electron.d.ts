@@ -535,10 +535,14 @@ export interface ElectronAPI {
   stageLines: (filePath: string, hunkIndex: number, lineIndices: number[]) => Promise<{ success: boolean; message: string }>
   unstageLines: (filePath: string, hunkIndex: number, lineIndices: number[]) => Promise<{ success: boolean; message: string }>
   discardLines: (filePath: string, hunkIndex: number, lineIndices: number[]) => Promise<{ success: boolean; message: string }>
+  // File content operations (for inline editing)
+  getFileContent: (filePath: string) => Promise<string | null>
+  saveFileContent: (filePath: string, content: string) => Promise<{ success: boolean; message: string }>
   // PR Review operations
   getPRDetail: (prNumber: number) => Promise<PRDetail | null>
   getPRReviewComments: (prNumber: number) => Promise<PRReviewComment[]>
   getPRFileDiff: (prNumber: number, filePath: string) => Promise<string | null>
+  getPRFileDiffParsed: (prNumber: number, filePath: string) => Promise<StagingFileDiff | null>
   commentOnPR: (prNumber: number, body: string) => Promise<{ success: boolean; message: string }>
   mergePR: (prNumber: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<{ success: boolean; message: string }>
   // Theme operations

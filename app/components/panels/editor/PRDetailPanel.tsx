@@ -4,8 +4,8 @@
  * Shows PR details, allows commenting, merging, and viewing file diffs.
  */
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import type { PullRequest, PRDetail, PRReviewComment } from '../../../types/electron'
+import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react'
+import type { PullRequest, PRDetail, PRReviewComment, StagingFileDiff } from '../../../types/electron'
 
 export interface PRReviewPanelProps {
   pr: PullRequest
@@ -31,7 +31,7 @@ export function PRReviewPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
   const [reviewComments, setReviewComments] = useState<PRReviewComment[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [fileDiff, setFileDiff] = useState<string | null>(null)
+  const [fileDiff, setFileDiff] = useState<StagingFileDiff | null>(null)
   const [loadingDiff, setLoadingDiff] = useState(false)
   const [showAIComments, setShowAIComments] = useState(true)
   const [commentText, setCommentText] = useState('')
@@ -41,6 +41,9 @@ export function PRReviewPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
 
   // Ref to track status timeout for cleanup
   const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  
+  // Ref for the diff container to scroll into view
+  const diffContainerRef = useRef<HTMLDivElement>(null)
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -129,7 +132,7 @@ export function PRReviewPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
     }
   }
 
-  // Load file diff when selected
+  // Load file diff when selected (using parsed format with hunks)
   useEffect(() => {
     if (!selectedFile) {
       setFileDiff(null)
@@ -141,7 +144,7 @@ export function PRReviewPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
     const loadDiff = async () => {
       setLoadingDiff(true)
       try {
-        const diff = await window.conveyor.pr.getPRFileDiff(pr.number, selectedFile)
+        const diff = await window.conveyor.pr.getPRFileDiffParsed(pr.number, selectedFile)
         if (!cancelled) {
           setFileDiff(diff)
         }
@@ -162,6 +165,16 @@ export function PRReviewPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
       cancelled = true
     }
   }, [pr.number, selectedFile])
+
+  // Scroll diff into view when a file is selected
+  useLayoutEffect(() => {
+    if (selectedFile && diffContainerRef.current) {
+      // Small delay to ensure the DOM has updated
+      requestAnimationFrame(() => {
+        diffContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+    }
+  }, [selectedFile])
 
   // Filter comments by AI/human
   const filteredComments = useMemo(() => {
@@ -414,7 +427,7 @@ export function PRReviewPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
 
             {/* File Diff Preview */}
             {selectedFile && (
-              <div className="pr-file-diff">
+              <div className="pr-file-diff" ref={diffContainerRef}>
                 <div className="pr-file-diff-header">
                   <span>{selectedFile}</span>
                   <a
@@ -431,8 +444,30 @@ export function PRReviewPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
                 <div className="pr-file-diff-content">
                   {loadingDiff ? (
                     <div className="pr-diff-loading">Loading diff...</div>
+                  ) : fileDiff?.isBinary ? (
+                    <div className="pr-diff-empty">Binary file</div>
+                  ) : fileDiff?.hunks.length === 0 ? (
+                    <div className="pr-diff-empty">No changes to display</div>
                   ) : fileDiff ? (
-                    <pre className="pr-diff-code">{fileDiff}</pre>
+                    fileDiff.hunks.map((hunk, hunkIdx) => (
+                      <div key={hunkIdx} className="diff-hunk">
+                        <div className="diff-hunk-header">
+                          @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
+                        </div>
+                        <div className="diff-hunk-lines">
+                          {hunk.lines.map((line, lineIdx) => (
+                            <div key={lineIdx} className={`diff-line diff-line-${line.type}`}>
+                              <span className="diff-line-number old">{line.oldLineNumber || ''}</span>
+                              <span className="diff-line-number new">{line.newLineNumber || ''}</span>
+                              <span className="diff-line-prefix">
+                                {line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' '}
+                              </span>
+                              <span className="diff-line-content">{line.content}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
                   ) : (
                     <div className="pr-diff-empty">Could not load diff</div>
                   )}

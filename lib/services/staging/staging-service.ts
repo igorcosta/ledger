@@ -625,3 +625,64 @@ export async function getFileDiff(
     return null
   }
 }
+
+/**
+ * Get the full content of a file for editing
+ */
+export async function getFileContent(ctx: RepositoryContext, filePath: string): Promise<string | null> {
+  try {
+    const { repoPath } = requireLocalRepo(ctx)
+    const fullPath = path.join(repoPath, filePath)
+
+    // Security: ensure the file is within the repo
+    const resolvedPath = path.resolve(fullPath)
+    const resolvedRepo = path.resolve(repoPath)
+    if (!resolvedPath.startsWith(resolvedRepo + path.sep)) {
+      console.error('Security: attempted to read file outside repository')
+      return null
+    }
+
+    // Check if file exists
+    if (!fs.existsSync(fullPath)) {
+      return null
+    }
+
+    const content = await fs.promises.readFile(fullPath, 'utf-8')
+    return content
+  } catch (error) {
+    console.error('Error reading file content:', error)
+    return null
+  }
+}
+
+/**
+ * Save content to a file (for inline editing)
+ */
+export async function saveFileContent(
+  ctx: RepositoryContext,
+  filePath: string,
+  content: string
+): Promise<StagingResult> {
+  try {
+    const { repoPath } = requireLocalRepo(ctx)
+    const fullPath = path.join(repoPath, filePath)
+
+    // Security: ensure the file is within the repo
+    const resolvedPath = path.resolve(fullPath)
+    const resolvedRepo = path.resolve(repoPath)
+    if (!resolvedPath.startsWith(resolvedRepo + path.sep)) {
+      return { success: false, message: 'Cannot write to files outside repository' }
+    }
+
+    // Ensure parent directory exists (for new files)
+    const dir = path.dirname(fullPath)
+    if (!fs.existsSync(dir)) {
+      await fs.promises.mkdir(dir, { recursive: true })
+    }
+
+    await fs.promises.writeFile(fullPath, content, 'utf-8')
+    return { success: true, message: `Saved ${filePath}` }
+  } catch (error) {
+    return { success: false, message: (error as Error).message }
+  }
+}

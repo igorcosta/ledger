@@ -1526,7 +1526,7 @@ export async function getPRReviewComments(prNumber: number): Promise<PRReviewCom
   }
 }
 
-// Get the diff for a specific file in a PR
+// Get the diff for a specific file in a PR (raw text)
 export async function getPRFileDiff(prNumber: number, filePath: string): Promise<string | null> {
   if (!repoPath) return null
 
@@ -1562,6 +1562,23 @@ export async function getPRFileDiff(prNumber: number, filePath: string): Promise
     return result.length > 0 ? result.join('\n') : null
   } catch (error) {
     console.error('Error fetching PR file diff:', error)
+    return null
+  }
+}
+
+// Get parsed diff for a specific file in a PR (with hunks and line-by-line info)
+export async function getPRFileDiffParsed(prNumber: number, filePath: string): Promise<StagingFileDiff | null> {
+  if (!repoPath) return null
+
+  try {
+    // Get the raw diff first
+    const rawDiff = await getPRFileDiff(prNumber, filePath)
+    if (!rawDiff) return null
+
+    // Parse the diff using the same parser as staging
+    return parseDiff(rawDiff, filePath)
+  } catch (error) {
+    console.error('Error fetching parsed PR file diff:', error)
     return null
   }
 }
@@ -4635,6 +4652,64 @@ export async function discardLines(
 
     await applyPatch(repoPath, partialPatch, ['-R'])
     return { success: true, message: `Discarded ${lineIndices.length} line(s)` }
+  } catch (error) {
+    return { success: false, message: (error as Error).message }
+  }
+}
+
+// Get the full content of a file for editing
+export async function getFileContent(filePath: string): Promise<string | null> {
+  if (!repoPath) return null
+
+  try {
+    const fullPath = path.join(repoPath, filePath)
+
+    // Security: ensure the file is within the repo
+    const resolvedPath = path.resolve(fullPath)
+    const resolvedRepo = path.resolve(repoPath)
+    if (!resolvedPath.startsWith(resolvedRepo + path.sep)) {
+      console.error('Security: attempted to read file outside repository')
+      return null
+    }
+
+    // Check if file exists
+    if (!fs.existsSync(fullPath)) {
+      return null
+    }
+
+    const content = await fs.promises.readFile(fullPath, 'utf-8')
+    return content
+  } catch (error) {
+    console.error('Error reading file content:', error)
+    return null
+  }
+}
+
+// Save content to a file (for inline editing)
+export async function saveFileContent(
+  filePath: string,
+  content: string
+): Promise<{ success: boolean; message: string }> {
+  if (!repoPath) return { success: false, message: 'No repository selected' }
+
+  try {
+    const fullPath = path.join(repoPath, filePath)
+
+    // Security: ensure the file is within the repo
+    const resolvedPath = path.resolve(fullPath)
+    const resolvedRepo = path.resolve(repoPath)
+    if (!resolvedPath.startsWith(resolvedRepo + path.sep)) {
+      return { success: false, message: 'Cannot write to files outside repository' }
+    }
+
+    // Ensure parent directory exists (for new files)
+    const dir = path.dirname(fullPath)
+    if (!fs.existsSync(dir)) {
+      await fs.promises.mkdir(dir, { recursive: true })
+    }
+
+    await fs.promises.writeFile(fullPath, content, 'utf-8')
+    return { success: true, message: `Saved ${filePath}` }
   } catch (error) {
     return { success: false, message: (error as Error).message }
   }

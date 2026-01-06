@@ -48,6 +48,11 @@ export function StagingPanel({ workingStatus, currentBranch, onRefresh, onStatus
   const [lastClickedLine, setLastClickedLine] = useState<{ hunkIndex: number; lineIndex: number } | null>(null)
   // Syntax highlighting state: Map of lineIndex to highlighted HTML
   const [highlightedLines, setHighlightedLines] = useState<Map<number, string>>(new Map())
+  // Inline editing state
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState('')
+  const [loadingEdit, setLoadingEdit] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const stagedFiles = workingStatus.files.filter((f) => f.staged)
   const unstagedFiles = workingStatus.files.filter((f) => !f.staged)
@@ -394,6 +399,57 @@ export function StagingPanel({ workingStatus, currentBranch, onRefresh, onStatus
       await onRefresh()
     } else {
       onStatusChange({ type: 'error', message: result.message })
+    }
+  }
+
+  // Start editing a file
+  const handleStartEdit = async () => {
+    if (!selectedFile) return
+    
+    setLoadingEdit(true)
+    try {
+      const content = await window.conveyor.staging.getFileContent(selectedFile.path)
+      if (content !== null) {
+        setEditContent(content)
+        setIsEditing(true)
+      } else {
+        onStatusChange({ type: 'error', message: 'Could not load file content' })
+      }
+    } catch (_error) {
+      onStatusChange({ type: 'error', message: 'Failed to load file for editing' })
+    } finally {
+      setLoadingEdit(false)
+    }
+  }
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setEditContent('')
+  }
+
+  // Save edited file
+  const handleSaveEdit = async () => {
+    if (!selectedFile) return
+    
+    setSavingEdit(true)
+    try {
+      const result = await window.conveyor.staging.saveFileContent(selectedFile.path, editContent)
+      if (result.success) {
+        onStatusChange({ type: 'success', message: result.message })
+        setIsEditing(false)
+        setEditContent('')
+        // Refresh diff to show updated changes
+        const diff = await window.conveyor.staging.getFileDiff(selectedFile.path, selectedFile.staged)
+        setFileDiff(diff)
+        await onRefresh()
+      } else {
+        onStatusChange({ type: 'error', message: result.message })
+      }
+    } catch (_error) {
+      onStatusChange({ type: 'error', message: 'Failed to save file' })
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -796,13 +852,54 @@ export function StagingPanel({ workingStatus, currentBranch, onRefresh, onStatus
         <div className="staging-diff">
           <div className="staging-diff-header">
             <span className="staging-diff-title">{selectedFile.path}</span>
-            {fileDiff && (
-              <span className="staging-diff-stats">
-                <span className="diff-additions">+{fileDiff.additions}</span>
-                <span className="diff-deletions">-{fileDiff.deletions}</span>
-              </span>
-            )}
+            <div className="staging-diff-header-actions">
+              {fileDiff && !isEditing && (
+                <span className="staging-diff-stats">
+                  <span className="diff-additions">+{fileDiff.additions}</span>
+                  <span className="diff-deletions">-{fileDiff.deletions}</span>
+                </span>
+              )}
+              {!selectedFile.staged && selectedFile.status !== 'deleted' && !isEditing && (
+                <button
+                  className="btn btn-sm btn-secondary"
+                  onClick={handleStartEdit}
+                  disabled={loadingEdit || loadingDiff}
+                  title="Edit file content"
+                >
+                  {loadingEdit ? 'Loading...' : 'Edit'}
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Edit Mode */}
+          {isEditing ? (
+            <div className="staging-edit-mode">
+              <textarea
+                className="staging-edit-textarea"
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                spellCheck={false}
+              />
+              <div className="staging-edit-actions">
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleSaveEdit}
+                  disabled={savingEdit}
+                >
+                  {savingEdit ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleCancelEdit}
+                  disabled={savingEdit}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Line Selection Action Bar */}
           {getSelectedLinesCount() > 0 && (
             <div className="line-selection-bar">
@@ -911,6 +1008,8 @@ export function StagingPanel({ workingStatus, currentBranch, onRefresh, onStatus
               <div className="staging-diff-empty">Select a file to view diff</div>
             )}
           </div>
+          </>
+          )}
         </div>
       )}
 

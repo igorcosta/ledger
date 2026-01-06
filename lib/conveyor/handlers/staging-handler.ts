@@ -14,6 +14,8 @@ import {
   stageLines,
   unstageLines,
   discardLines,
+  getFileContent,
+  saveFileContent,
 } from '@/lib/main/git-service'
 import { serializeError } from '@/lib/utils/error-helpers'
 
@@ -135,6 +137,23 @@ export const registerStagingHandlers = () => {
   handle('discard-lines', async (filePath: string, hunkIndex: number, lineIndices: number[]) => {
     try {
       return await discardLines(filePath, hunkIndex, lineIndices)
+    } catch (error) {
+      return { success: false, message: serializeError(error) }
+    }
+  })
+
+  // File content operations (for inline editing)
+  handle('get-file-content', async (filePath: string) => {
+    try {
+      return await getFileContent(filePath)
+    } catch (_error) {
+      return null
+    }
+  })
+
+  handle('save-file-content', async (filePath: string, content: string) => {
+    try {
+      return await saveFileContent(filePath, content)
     } catch (error) {
       return { success: false, message: serializeError(error) }
     }
