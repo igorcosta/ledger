@@ -215,6 +215,3 @@ For now, Ledger adds `.worktrees/` to the project's `.gitignore` and documents t
 - [git-worktree-runner (gtr)](https://github.com/coderabbitai/git-worktree-runner) - Uses sibling folder convention
 - [Ledger Worktrees Feature](./features/worktrees.md)
 - [Ledger Opinionated Git](./opinionated-git.md) - Includes Leapfrog Stash
-
-
-

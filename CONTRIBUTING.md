@@ -165,7 +165,3 @@ All git commands go through `simple-git` library in `git-service.ts`. PR operati
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
-
-
-
-

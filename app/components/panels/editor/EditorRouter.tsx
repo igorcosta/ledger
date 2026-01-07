@@ -233,7 +233,3 @@ export function EditorRouter({
       return null
   }
 }
-
-// Alternative export name
-export { EditorRouter as SidebarDetailPanel }
-export type { EditorRouterProps as SidebarDetailPanelProps }

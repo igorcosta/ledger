@@ -292,6 +292,3 @@ export function WorktreeCreatePanel({
     </div>
   )
 }
-
-
-
