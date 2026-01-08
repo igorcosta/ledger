@@ -12,7 +12,7 @@ Building AI-powered card triage for Notion databases in 4 layers:
 
 | Layer | Name | Status | Commit |
 |-------|------|--------|--------|
-| 0 | Core AI Infrastructure | Complete | (pending) |
+| 0 | Core AI Infrastructure | Complete | 4e3b6a4 |
 | 1 | Notion Database Viewer | Pending | - |
 | 2 | Card Actions (Write-back) | Pending | - |
 | 3 | Pokemon Triage Game | Pending | - |
