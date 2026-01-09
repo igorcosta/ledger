@@ -207,6 +207,7 @@ export const registerAIHandlers = () => {
           anthropic: { cost: 0, requests: 0 },
           openai: { cost: 0, requests: 0 },
           gemini: { cost: 0, requests: 0 },
+          openrouter: { cost: 0, requests: 0 },
         },
       }
     }

@@ -333,7 +333,7 @@ export function updateAISettings(updates: Partial<AISettings>): AISettings {
 }
 
 export function setAIProviderKey(
-  provider: 'anthropic' | 'openai' | 'gemini',
+  provider: 'anthropic' | 'openai' | 'gemini' | 'openrouter',
   apiKey: string,
   enabled: boolean = true,
   organization?: string
@@ -362,7 +362,7 @@ export function setAIProviderKey(
   saveSettings(settings);
 }
 
-export function removeAIProviderKey(provider: 'anthropic' | 'openai' | 'gemini'): void {
+export function removeAIProviderKey(provider: 'anthropic' | 'openai' | 'gemini' | 'openrouter'): void {
   const settings = loadSettings();
   if (settings.ai?.providers) {
     delete settings.ai.providers[provider];
@@ -370,7 +370,7 @@ export function removeAIProviderKey(provider: 'anthropic' | 'openai' | 'gemini')
   }
 }
 
-export function setDefaultAIProvider(provider: 'anthropic' | 'openai' | 'gemini'): void {
+export function setDefaultAIProvider(provider: 'anthropic' | 'openai' | 'gemini' | 'openrouter'): void {
   const settings = loadSettings();
   if (settings.ai) {
     settings.ai.defaults.provider = provider;
