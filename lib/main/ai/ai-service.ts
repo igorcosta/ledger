@@ -164,13 +164,17 @@ class AIService {
   private resolveModelAndProvider(
     options: CompletionOptions
   ): { modelId: string; provider: AIProvider } {
-    // If explicit model is provided, use it
+    // If explicit model is provided, check if its provider is configured
     if (options.model) {
       const model = getModel(options.model)
       if (!model) {
         throw new Error(`Unknown model: ${options.model}`)
       }
-      return { modelId: options.model, provider: model.provider }
+      // If the model's provider is configured, use it
+      if (this.isProviderConfigured(model.provider)) {
+        return { modelId: options.model, provider: model.provider }
+      }
+      // Otherwise, fall through to fallback logic
     }
 
     // If explicit provider is provided, use default model for that provider
@@ -178,8 +182,12 @@ class AIService {
       if (options.provider === 'openrouter') {
         return { modelId: DEFAULT_MODELS.openrouter.balanced, provider: 'openrouter' }
       }
-      const modelId = this.settings.defaults.models.balanced
-      return { modelId, provider: options.provider }
+      // Check if the explicit provider is configured
+      if (this.isProviderConfigured(options.provider)) {
+        const modelId = this.settings.defaults.models.balanced
+        return { modelId, provider: options.provider }
+      }
+      // Otherwise, fall through to fallback logic
     }
 
     // Check if the default provider is configured
@@ -290,15 +298,44 @@ class AIService {
   }
 
   /**
-   * Get the model for a tier, respecting provider override
+   * Get the model for a tier, respecting provider override and configuration status
    */
-  private getModelForTier(tier: 'quick' | 'balanced' | 'powerful', provider?: AIProvider): string {
-    // If provider is specified, use its default model for this tier
+  private getModelForTier(tier: 'quick' | 'balanced' | 'powerful', provider?: AIProvider): { modelId: string; provider: AIProvider } {
+    // If provider is specified and configured, use its model for this tier
     if (provider) {
-      return DEFAULT_MODELS[provider][tier]
+      if (provider === 'openrouter' || this.isProviderConfigured(provider)) {
+        return {
+          modelId: DEFAULT_MODELS[provider][tier],
+          provider,
+        }
+      }
+      // Provider specified but not configured, fall through to fallback
     }
-    // Otherwise use the settings default
-    return this.settings.defaults.models[tier]
+
+    // Check if default provider is configured
+    const defaultProvider = this.settings.defaults.provider
+    if (this.isProviderConfigured(defaultProvider)) {
+      return {
+        modelId: this.settings.defaults.models[tier],
+        provider: defaultProvider,
+      }
+    }
+
+    // Fall back to any configured provider
+    const configuredProviders = this.getConfiguredProviders()
+    if (configuredProviders.length > 0) {
+      const fallbackProvider = configuredProviders[0]
+      return {
+        modelId: DEFAULT_MODELS[fallbackProvider][tier],
+        provider: fallbackProvider,
+      }
+    }
+
+    // Ultimate fallback: OpenRouter free tier with correct tier
+    return {
+      modelId: DEFAULT_MODELS.openrouter[tier],
+      provider: 'openrouter',
+    }
   }
 
   /**
@@ -308,8 +345,8 @@ class AIService {
     messages: AIMessage[],
     options: Omit<CompletionOptions, 'model'> = {}
   ): Promise<AIResponse> {
-    const modelId = this.getModelForTier('quick', options.provider)
-    return this.complete(messages, { ...options, model: modelId })
+    const { modelId, provider } = this.getModelForTier('quick', options.provider)
+    return this.complete(messages, { ...options, model: modelId, provider })
   }
 
   /**
@@ -319,8 +356,8 @@ class AIService {
     messages: AIMessage[],
     options: Omit<CompletionOptions, 'model'> = {}
   ): Promise<AIResponse> {
-    const modelId = this.getModelForTier('balanced', options.provider)
-    return this.complete(messages, { ...options, model: modelId })
+    const { modelId, provider } = this.getModelForTier('balanced', options.provider)
+    return this.complete(messages, { ...options, model: modelId, provider })
   }
 
   /**
@@ -330,8 +367,8 @@ class AIService {
     messages: AIMessage[],
     options: Omit<CompletionOptions, 'model'> = {}
   ): Promise<AIResponse> {
-    const modelId = this.getModelForTier('powerful', options.provider)
-    return this.complete(messages, { ...options, model: modelId })
+    const { modelId, provider } = this.getModelForTier('powerful', options.provider)
+    return this.complete(messages, { ...options, model: modelId, provider })
   }
 
   /**
