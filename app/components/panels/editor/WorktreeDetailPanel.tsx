@@ -48,6 +48,7 @@ export interface WorktreeDetailPanelProps {
   onClearFocus?: () => void
   onCheckoutWorktree?: (worktree: Worktree) => void
   onOpenStaging?: () => void
+  onBranchClick?: (branchName: string) => void
 }
 
 export function WorktreeDetailPanel({
@@ -59,6 +60,7 @@ export function WorktreeDetailPanel({
   onClearFocus,
   onCheckoutWorktree,
   onOpenStaging,
+  onBranchClick,
 }: WorktreeDetailPanelProps) {
   const [actionInProgress, setActionInProgress] = useState(false)
   // Staging/commit state
@@ -371,7 +373,18 @@ export function WorktreeDetailPanel({
           {worktree.branch && (
             <div className="detail-meta-item">
               <span className="meta-label">Branch</span>
-              <code className="meta-value">{worktree.branch}</code>
+              {onBranchClick ? (
+                <button
+                  className="meta-value-link"
+                  onClick={() => onBranchClick(worktree.branch!)}
+                  title={`Go to branch: ${worktree.branch}`}
+                >
+                  <span className="branch-icon">⎇</span>
+                  {worktree.branch}
+                </button>
+              ) : (
+                <code className="meta-value">{worktree.branch}</code>
+              )}
             </div>
           )}
           <div className="detail-meta-item">
@@ -434,7 +447,18 @@ export function WorktreeDetailPanel({
         {worktree.branch && (
           <div className="detail-meta-item full-width">
             <span className="meta-label">Branch</span>
-            <code className="meta-value">{worktree.branch}</code>
+            {onBranchClick ? (
+              <button
+                className="meta-value-link"
+                onClick={() => onBranchClick(worktree.branch!)}
+                title={`Go to branch: ${worktree.branch}`}
+              >
+                <span className="branch-icon">⎇</span>
+                {worktree.branch}
+              </button>
+            ) : (
+              <code className="meta-value">{worktree.branch}</code>
+            )}
           </div>
         )}
         <div className="detail-meta-item full-width">

@@ -2167,6 +2167,29 @@ body,
   cursor: text;
 }
 
+/* Clickable branch link in meta grid */
+.meta-value-link {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'JetBrains Mono', 'SF Mono', Monaco, monospace;
+  font-size: 11px;
+  color: var(--accent);
+  transition: color 0.15s ease;
+}
+
+.meta-value-link:hover {
+  color: var(--accent-dim);
+  text-decoration: underline;
+}
+
+.meta-value-link .branch-icon {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
 .detail-meta-item .meta-link {
   color: var(--accent);
   text-decoration: none;
