@@ -317,6 +317,7 @@ export const CommitResultSchema = z.object({
   success: z.boolean(),
   message: z.string(),
   behindCount: z.number().optional(),
+  hash: z.string().optional(),
 })
 
 export const PullResultSchema = z.object({
