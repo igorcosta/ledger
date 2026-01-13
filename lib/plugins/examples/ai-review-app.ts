@@ -99,7 +99,7 @@ export const aiReviewAppPlugin: AppPlugin = {
   // Hooks this plugin implements - using core AI service
   hooks: {
     'ai:analyze-commit': async (commit: Commit): Promise<CommitAnalysis> => {
-      // AI service has built-in fallback to free OpenRouter models
+      // Uses configured provider, or free OpenRouter if none configured
       try {
         // Build context about the commit
         const commitContext = `
@@ -132,7 +132,7 @@ Deletions: ${commit.deletions ?? 0}
     },
 
     'ai:review-pr': async (pr: PullRequest, diff: string): Promise<PRReviewSuggestion[]> => {
-      // AI service has built-in fallback to free OpenRouter models
+      // Uses configured provider, or free OpenRouter if none configured
       try {
         // Truncate diff if too long (avoid token limits)
         const maxDiffLength = 15000
@@ -167,7 +167,7 @@ Deletions: ${commit.deletions ?? 0}
     },
 
     'ai:suggest-commit-message': async (diff: string): Promise<string> => {
-      // AI service has built-in fallback to free OpenRouter models
+      // Uses configured provider, or free OpenRouter if none configured
       try {
         const response = await window.conveyor.ai.quick(
           [
@@ -219,7 +219,7 @@ Deletions: ${commit.deletions ?? 0}
       description: 'Test the AI service connection',
       handler: async () => {
         try {
-          // AI service always has free fallback via OpenRouter
+          // Uses configured provider, or free OpenRouter if none configured
           const response = await window.conveyor.ai.quick(
             [{ role: 'user', content: 'Say "AI Review plugin connected!" in exactly those words.' }],
             { maxTokens: 20 }
@@ -236,7 +236,7 @@ Deletions: ${commit.deletions ?? 0}
   async activate(context: PluginContext): Promise<void> {
     context.logger.info('AI Review App activated')
 
-    // Log available AI providers (free fallback always available)
+    // Log available AI providers (free OpenRouter available if none configured)
     try {
       const providers = await window.conveyor.ai.getConfiguredProviders()
       if (providers.length > 0) {

@@ -186,25 +186,25 @@ class AIService {
 
   /**
    * Resolve the model and provider to use based on options and defaults
-   * Falls back to OpenRouter free tier if no provider is configured
    */
   private resolveModelAndProvider(
     options: CompletionOptions
   ): { modelId: string; provider: AIProvider } {
-    // If explicit model is provided, check if its provider is configured
+    // If explicit model is provided, require its provider to be configured
     if (options.model) {
       const model = getModel(options.model)
       if (!model) {
         throw new Error(`Unknown model: ${options.model}`)
       }
-      // If the model's provider is available, use it
-      if (this.isProviderAvailable(model.provider)) {
-        return { modelId: options.model, provider: model.provider }
+      if (!this.isProviderAvailable(model.provider)) {
+        throw new Error(
+          `Provider '${model.provider}' is not configured. Please add an API key for ${model.provider} to use ${options.model}.`
+        )
       }
-      // Otherwise, fall through to fallback logic
+      return { modelId: options.model, provider: model.provider }
     }
 
-    // Otherwise, pick the balanced-tier model respecting provider override + fallbacks
+    // No explicit model - pick the balanced-tier model respecting provider override
     return this.getModelForTier('balanced', options.provider)
   }
 
@@ -293,7 +293,7 @@ class AIService {
    * Get the model for a tier, respecting provider override and configuration status
    */
   private getModelForTier(tier: 'quick' | 'balanced' | 'powerful', provider?: AIProvider): { modelId: string; provider: AIProvider } {
-    // If provider is specified and available, use its model for this tier
+    // If provider is explicitly specified, require it to be configured
     if (provider) {
       if (provider === 'openrouter' || this.isProviderAvailable(provider)) {
         return {
@@ -301,10 +301,13 @@ class AIService {
           provider,
         }
       }
-      // Provider specified but not configured, fall through to fallback
+      throw new Error(
+        `Provider '${provider}' is not configured. Please add an API key for ${provider}.`
+      )
     }
 
-    // Check if default provider is available
+    // No explicit provider specified - use defaults in priority order:
+    // 1. User's configured default provider
     const defaultProvider = this.settings.defaults.provider
     if (this.isProviderAvailable(defaultProvider)) {
       return {
@@ -313,17 +316,17 @@ class AIService {
       }
     }
 
-    // Fall back to any configured provider
+    // 2. Any configured provider
     const configuredProviders = this.getConfiguredProviders()
     if (configuredProviders.length > 0) {
-      const fallbackProvider = configuredProviders[0]
+      const availableProvider = configuredProviders[0]
       return {
-        modelId: DEFAULT_MODELS[fallbackProvider][tier],
-        provider: fallbackProvider,
+        modelId: DEFAULT_MODELS[availableProvider][tier],
+        provider: availableProvider,
       }
     }
 
-    // Ultimate fallback: OpenRouter free tier with correct tier
+    // 3. OpenRouter free tier (always available)
     return {
       modelId: DEFAULT_MODELS.openrouter[tier],
       provider: 'openrouter',

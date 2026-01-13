@@ -106,7 +106,7 @@ export const aiChatPanelPlugin: PanelPlugin = {
       description: 'Ask a quick question about Git',
       handler: async () => {
         try {
-          // AI service has built-in free fallback
+          // Uses configured provider, or free OpenRouter if none configured
           const response = await window.conveyor.ai.quick(
             [{ role: 'user', content: 'What does git rebase do in one sentence?' }],
             { systemPrompt: CHAT_SYSTEM_PROMPT, maxTokens: 100 }
@@ -122,7 +122,7 @@ export const aiChatPanelPlugin: PanelPlugin = {
   // Hooks - using core AI service
   hooks: {
     'ai:explain-diff': async (diff: string): Promise<string> => {
-      // AI service has built-in free fallback
+      // Uses configured provider, or free OpenRouter if none configured
       try {
         // Truncate diff if too long
         const maxLength = 10000
@@ -147,7 +147,7 @@ export const aiChatPanelPlugin: PanelPlugin = {
     },
 
     'ai:summarize-changes': async (commits): Promise<string> => {
-      // AI service has built-in free fallback
+      // Uses configured provider, or free OpenRouter if none configured
       try {
         const commitList = commits
           .slice(0, 20) // Limit to recent commits
@@ -174,7 +174,7 @@ export const aiChatPanelPlugin: PanelPlugin = {
   async activate(context: PluginContext): Promise<void> {
     context.logger.info('AI Chat Panel activated')
 
-    // Log available AI providers (free fallback always available)
+    // Log available AI providers (free OpenRouter available if none configured)
     try {
       const providers = await window.conveyor.ai.getConfiguredProviders()
       if (providers.length > 0) {
