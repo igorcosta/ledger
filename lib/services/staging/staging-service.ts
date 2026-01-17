@@ -94,6 +94,38 @@ export async function discardFileChanges(ctx: RepositoryContext, filePath: strin
 }
 
 /**
+ * Discard all changes (both staged and unstaged)
+ */
+export async function discardAllChanges(ctx: RepositoryContext): Promise<StagingResult> {
+  try {
+    const { git } = requireLocalRepo(ctx)
+
+    const status = await git.status()
+
+    // First unstage everything
+    if (status.staged.length > 0) {
+      await git.raw(['restore', '--staged', '.'])
+    }
+
+    // Restore tracked files to last commit
+    const trackedModified = [...status.modified, ...status.deleted]
+    if (trackedModified.length > 0) {
+      await git.raw(['restore', '.'])
+    }
+
+    // Remove untracked files
+    if (status.not_added.length > 0) {
+      await git.raw(['clean', '-fd'])
+    }
+
+    const totalChanges = status.files.length
+    return { success: true, message: `Discarded all ${totalChanges} changes` }
+  } catch (error) {
+    return { success: false, message: (error as Error).message }
+  }
+}
+
+/**
  * Apply a patch using git apply with stdin via child_process
  */
 async function applyPatch(
