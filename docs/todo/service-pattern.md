@@ -136,9 +136,22 @@ All schemas use Zod for runtime validation. Channel names preserved from `main.t
 - Updated `IPC_CHANNELS` documentation array
 - Cleaned up unused imports
 
+### Phase 5: git-service.ts Cleanup
+
+Removed 827 lines from `git-service.ts` by:
+- Rewiring handlers to use `lib/services/` instead of importing from `git-service.ts`
+- Removing the now-dead code from `git-service.ts`
+
+**Functions removed:**
+- `getMailmap`, `getAuthorIdentities`, `suggestMailmapEntries`, `addMailmapEntries`, `removeMailmapEntry`
+- `getContributorStats`, `getMergedBranchTree`, `getSiblingRepos`
+- Helper functions: `clusterAuthors`, `getBranchType`, `parseMergeCommitMessage`, `assignSizeTiers`, `assignBadges`
+- Associated type definitions (moved to service modules)
+
 ### Validation
 
 - ✅ Lint: 0 errors, 0 warnings
+- ✅ TypeScript: Compiles without errors
 - ✅ Tests: 32 passed (3 failed due to Electron infrastructure issues, not code)
 
 ---
@@ -206,9 +219,9 @@ lib/main/main.ts                       # Registered new handlers, removed duplic
 
 ### High Priority
 
-1. **Rewire Existing Conveyor Handlers**
+1. **Rewire Remaining Conveyor Handlers**
    
-   The existing conveyor handlers still import from `git-service.ts`. They should be updated to:
+   Some conveyor handlers still import from `git-service.ts`. They should be updated to use `lib/services/`:
    ```typescript
    // Before
    import { getStashes } from '@/lib/main/git-service'
@@ -223,7 +236,11 @@ lib/main/main.ts                       # Registered new handlers, removed duplic
    })
    ```
 
-   Files to update:
+   **Completed:**
+   - ✅ `lib/conveyor/handlers/mailmap-handler.ts`
+   - ✅ `lib/conveyor/handlers/analytics-handler.ts`
+
+   **Remaining:**
    - `lib/conveyor/handlers/branch-handler.ts`
    - `lib/conveyor/handlers/worktree-handler.ts`
    - `lib/conveyor/handlers/stash-handler.ts`
@@ -268,11 +285,14 @@ lib/main/main.ts                       # Registered new handlers, removed duplic
 
 ### Low Priority
 
-6. **Gut git-service.ts**
+6. **Continue Reducing git-service.ts**
    
-   Once all handlers are rewired, `git-service.ts` can be reduced to:
+   **Progress:** Reduced from 5,590 to 4,769 lines (-821 lines, -15%)
+   
+   Once all handlers are rewired, `git-service.ts` can be reduced further to:
    - `setRepoPath()` / `getRepoPath()` (for backward compatibility)
    - `initializeGlobalStateSync()` (until RepositoryManager is fully adopted)
+   - Core operations not yet migrated to services
 
 7. **Add Tests for Services**
    
