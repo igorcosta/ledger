@@ -1,14 +1,16 @@
 import { handle } from '@/lib/main/shared'
+import { getRepositoryManager } from '@/lib/repositories'
 import {
   getContributorStats,
   getMergedBranchTree,
   getSiblingRepos,
-} from '@/lib/main/git-service'
+} from '@/lib/services/analytics'
 
 export const registerAnalyticsHandlers = () => {
   handle('get-contributor-stats', async (topN?: number, bucketSize?: 'day' | 'week' | 'month') => {
     try {
-      return await getContributorStats(topN, bucketSize)
+      const ctx = getRepositoryManager().requireActive()
+      return await getContributorStats(ctx, topN, bucketSize)
     } catch (_error) {
       return {
         contributors: [],
@@ -21,7 +23,8 @@ export const registerAnalyticsHandlers = () => {
 
   handle('get-merged-branch-tree', async (limit?: number) => {
     try {
-      return await getMergedBranchTree(limit)
+      const ctx = getRepositoryManager().requireActive()
+      return await getMergedBranchTree(ctx, limit)
     } catch (_error) {
       return {
         masterBranch: 'main',
@@ -33,7 +36,8 @@ export const registerAnalyticsHandlers = () => {
 
   handle('get-sibling-repos', async () => {
     try {
-      return await getSiblingRepos()
+      const ctx = getRepositoryManager().requireActive()
+      return await getSiblingRepos(ctx)
     } catch (_error) {
       return []
     }

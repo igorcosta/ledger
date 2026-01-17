@@ -1,4 +1,5 @@
 import { handle } from '@/lib/main/shared'
+import { getRepositoryManager } from '@/lib/repositories'
 import {
   getMailmap,
   getAuthorIdentities,
@@ -6,13 +7,14 @@ import {
   addMailmapEntries,
   removeMailmapEntry,
   MailmapEntry,
-} from '@/lib/main/git-service'
+} from '@/lib/services/mailmap'
 import { serializeError } from '@/lib/utils/error-helpers'
 
 export const registerMailmapHandlers = () => {
   handle('get-mailmap', async () => {
     try {
-      return await getMailmap()
+      const ctx = getRepositoryManager().requireActive()
+      return await getMailmap(ctx)
     } catch (_error) {
       return []
     }
@@ -20,7 +22,8 @@ export const registerMailmapHandlers = () => {
 
   handle('get-author-identities', async () => {
     try {
-      return await getAuthorIdentities()
+      const ctx = getRepositoryManager().requireActive()
+      return await getAuthorIdentities(ctx)
     } catch (_error) {
       return []
     }
@@ -28,7 +31,8 @@ export const registerMailmapHandlers = () => {
 
   handle('suggest-mailmap-entries', async () => {
     try {
-      return await suggestMailmapEntries()
+      const ctx = getRepositoryManager().requireActive()
+      return await suggestMailmapEntries(ctx)
     } catch (_error) {
       return []
     }
@@ -36,7 +40,8 @@ export const registerMailmapHandlers = () => {
 
   handle('add-mailmap-entries', async (entries: MailmapEntry[]) => {
     try {
-      return await addMailmapEntries(entries)
+      const ctx = getRepositoryManager().requireActive()
+      return await addMailmapEntries(ctx, entries)
     } catch (error) {
       return { success: false, message: serializeError(error) }
     }
@@ -44,7 +49,8 @@ export const registerMailmapHandlers = () => {
 
   handle('remove-mailmap-entry', async (entry: MailmapEntry) => {
     try {
-      return await removeMailmapEntry(entry)
+      const ctx = getRepositoryManager().requireActive()
+      return await removeMailmapEntry(ctx, entry)
     } catch (error) {
       return { success: false, message: serializeError(error) }
     }

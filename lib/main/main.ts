@@ -454,19 +454,7 @@ app.whenReady().then(() => {
     }
   )
 
-  ipcMain.handle(
-    'get-contributor-stats',
-    async (_, topN?: number, bucketSize?: 'day' | 'week' | 'month') => {
-      try {
-        const { getContributorStats } = await import('./git-service')
-        return await getContributorStats(topN, bucketSize)
-      } catch (_error) {
-        return { contributors: [], startDate: '', endDate: '', bucketSize: bucketSize || 'week' }
-      }
-    }
-  )
-
-  // Mailmap handlers now registered via conveyor (registerMailmapHandlers)
+  // Analytics handlers now registered via conveyor (registerAnalyticsHandlers)
 
   ipcMain.handle('get-commit-diff', async (_, commitHash: string) => {
     try {
