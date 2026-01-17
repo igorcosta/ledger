@@ -215,7 +215,11 @@ test.describe('Ledger App - AI Settings', () => {
         path.join(__dirname, '../out/main/main.js'),
         `--repo=${TEST_REPO}`
       ],
-      env: { ...process.env, LEDGER_SETTINGS_PATH: settingsPath },
+      env: {
+        ...process.env,
+        LEDGER_SETTINGS_PATH: settingsPath,
+        LEDGER_MOCK_OPENROUTER: '1',
+      },
     })
     
     page = await app.firstWindow()
@@ -313,13 +317,8 @@ test.describe('Ledger App - AI Settings', () => {
     // Wait for test to complete - should see "Testing..." then "Connected" or "Failed"
     const testStatus = page.getByTestId('ai-test-status-openrouter')
     await expect(testStatus).toBeVisible({ timeout: 2000 })
-    await expect(testStatus).toHaveText('Testing...', { timeout: 2000 })
-    
-    // Then wait for completion (up to 20 seconds for real API call)
-    await expect(testStatus).not.toHaveText('Testing...', { timeout: 20000 })
-    
-    // Verify success (should work with free tier)
-    const statusText = await testStatus.textContent()
-    expect(statusText).toContain('Connected')
+
+    // With mocked responses, the status can flip to Connected immediately.
+    await expect(testStatus).toContainText('Connected', { timeout: 5000 })
   })
 })

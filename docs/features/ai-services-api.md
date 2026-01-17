@@ -443,11 +443,12 @@ Location: `tests/app.spec.ts` - "AI Settings" test suite
 **Coverage:**
 - Settings panel opens and displays correctly
 - All provider cards render
-- OpenRouter connection test (mocked response)
+- OpenRouter connection test (mocked response for offline safety)
 - Provider list completeness
 
 **Test Philosophy:**
-- External API calls are mocked in E2E to avoid network flakiness
+- E2E defaults to mocked AI responses to keep tests offline-safe and stable
+- The OpenRouter mock is enabled via `LEDGER_MOCK_OPENROUTER=1` in the test env
 - Provider-boundary mocks can be enabled for unit tests (future)
 - E2E tests verify the full stack including IPC, service, provider, and UI
 

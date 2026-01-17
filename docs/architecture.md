@@ -119,12 +119,12 @@ To add a new IPC channel:
 
 ## State Management
 
-The app uses React's built-in state management:
+The app uses React's built-in hooks for most UI state:
 
 - `useState` for simple state (repoPath, branches, loading, etc.)
 - `useMemo` for derived state (filtered/sorted branches)
 - `useCallback` for memoized handlers
 - `useEffect` for side effects (load repo on mount, auto-dismiss toasts)
 
-No external state library is used - the app is simple enough that React's built-in hooks suffice.
+For shared UI concerns (active panels, plugin navigation, persisted UI preferences), a small shared store keeps multiple components in sync and supports optional persistence. This keeps local state lightweight while still allowing cross-panel coordination when needed.
 
