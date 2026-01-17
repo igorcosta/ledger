@@ -140,6 +140,25 @@ export function AISettingsSection() {
     [ai]
   )
 
+  const handleDisableProvider = useCallback(
+    async (provider: AIProvider) => {
+      try {
+        setSaving(true)
+        await ai.removeProviderKey(provider)
+        await loadSettings()
+        setTestResults((prev) => ({
+          ...prev,
+          [provider]: { provider, status: 'idle' },
+        }))
+      } catch (error) {
+        console.error(`Failed to disable ${provider}:`, error)
+      } finally {
+        setSaving(false)
+      }
+    },
+    [ai]
+  )
+
   const handleSetDefault = useCallback(
     async (provider: AIProvider) => {
       try {
@@ -308,13 +327,21 @@ export function AISettingsSection() {
                         >
                           Remove
                         </button>
+                      ) : configured && isFreeProvider && !editingKeys[provider].trim() ? (
+                        <button
+                          className="ai-key-btn ai-key-btn-remove"
+                          onClick={() => handleDisableProvider(provider)}
+                          disabled={saving}
+                        >
+                          Disable
+                        </button>
                       ) : (
                         <button
                           className="ai-key-btn ai-key-btn-save"
                           onClick={() => handleSaveKey(provider)}
-                          disabled={saving || (provider !== 'openrouter' && !editingKeys[provider].trim())}
+                          disabled={saving || (!isFreeProvider && !editingKeys[provider].trim())}
                         >
-                          {provider === 'openrouter' && !editingKeys[provider].trim() ? 'Enable' : 'Save'}
+                          {isFreeProvider && !configured && !editingKeys[provider].trim() ? 'Enable' : 'Save'}
                         </button>
                       )}
                     </div>
