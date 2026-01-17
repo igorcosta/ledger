@@ -66,7 +66,7 @@ AIService.balanced()
     ↓
 Provider Selection Logic
     ↓
-[foo]Provider.complete() (or openai, gemini, openrouter)
+SelectedProvider.complete()
     ↓
 External API (Claude, GPT, Gemini, OpenRouter)
     ↓
@@ -89,13 +89,6 @@ All supported models are defined in `lib/main/ai/models.ts` as a registry mappin
 - Capability flags (vision, JSON mode, streaming)
 - Performance tier assignment
 - Human-readable descriptions
-
-**Total Models:** 11 models across 4 providers
-
-**Tier Distribution:**
-- Quick: 4 models (Haiku, 4o-mini, Flash, Big Pickle)
-- Balanced: 4 models (Sonnet 4, 4o, Pro 2.0, Big Pickle)
-- Powerful: 3 models (Opus 4, o1, Pro 2.5, Grok Code)
 
 ### Cost Estimation
 

@@ -12,31 +12,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useConveyor } from '../hooks/use-conveyor'
-
-type AIProvider = 'anthropic' | 'openai' | 'gemini' | 'openrouter'
-
-interface ProviderConfig {
-  apiKey: string
-  enabled: boolean
-  organization?: string
-}
-
-interface AISettings {
-  providers: {
-    anthropic?: ProviderConfig
-    openai?: ProviderConfig
-    gemini?: ProviderConfig
-    openrouter?: ProviderConfig
-  }
-  defaults: {
-    provider: AIProvider
-    models: {
-      quick: string
-      balanced: string
-      powerful: string
-    }
-  }
-}
+import type { AIProvider, AISettings } from '@/lib/conveyor/schemas/ai-schema'
 
 interface TestResult {
   provider: AIProvider
@@ -65,31 +41,6 @@ const PROVIDER_INFO: Record<AIProvider, { name: string; placeholder: string; lin
     placeholder: 'sk-or-... (optional for more models)',
     link: 'https://openrouter.ai/keys',
     isFree: true,
-  },
-}
-
-// Model defaults are stored server-side in the AI service
-// This constant is kept for reference but may be used in future UI enhancements
-const _DEFAULT_MODELS: Record<AIProvider, { quick: string; balanced: string; powerful: string }> = {
-  anthropic: {
-    quick: 'claude-3-5-haiku-20241022',
-    balanced: 'claude-sonnet-4-20250514',
-    powerful: 'claude-opus-4-20250514',
-  },
-  openai: {
-    quick: 'gpt-4o-mini',
-    balanced: 'gpt-4o',
-    powerful: 'o1',
-  },
-  gemini: {
-    quick: 'gemini-2.0-flash',
-    balanced: 'gemini-2.0-pro',
-    powerful: 'gemini-2.5-pro',
-  },
-  openrouter: {
-    quick: 'big-pickle',
-    balanced: 'big-pickle',
-    powerful: 'grok-code',
   },
 }
 
