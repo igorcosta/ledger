@@ -33,8 +33,7 @@ import { registerAnalyticsHandlers } from '@/lib/conveyor/handlers/analytics-han
 import { registerCanvasHandlers } from '@/lib/conveyor/handlers/canvas-handler'
 import { markChannelRegistered } from '@/lib/main/shared'
 
-// IPC channels registered below via ipcMain.handle (legacy)
-// Many channels are now registered via conveyor handlers with Zod validation
+// IPC channels registered in this file (for documentation/debugging)
 const IPC_CHANNELS = [
   // Repo
   'select-repo', 'get-repo-path', 'get-saved-repo-path', 'load-saved-repo',
@@ -63,10 +62,6 @@ const IPC_CHANNELS = [
   // Theme
   'get-theme-mode', 'set-theme-mode', 'get-system-theme', 'get-selected-theme-id',
   'get-custom-theme', 'load-vscode-theme', 'load-built-in-theme', 'clear-custom-theme',
-  // NOTE: Channels moved to conveyor handlers:
-  // - Canvas: get-canvases, save-canvases, get-active-canvas-id, save-active-canvas-id, add-canvas, remove-canvas, update-canvas
-  // - Mailmap: get-mailmap, add-mailmap-entries, remove-mailmap-entry, suggest-mailmap-entries, get-author-identities
-  // - Analytics: get-contributor-stats, get-merged-branch-tree, get-sibling-repos
 ]
 
 // Fix PATH for macOS when launched from Finder/Dock (not terminal)
@@ -454,8 +449,6 @@ app.whenReady().then(() => {
     }
   )
 
-  // Analytics handlers now registered via conveyor (registerAnalyticsHandlers)
-
   ipcMain.handle('get-commit-diff', async (_, commitHash: string) => {
     try {
       return await getCommitDiff(commitHash)
@@ -778,8 +771,6 @@ app.whenReady().then(() => {
     }
   })
 
-  // Tech Tree handlers now registered via conveyor (registerAnalyticsHandlers)
-
   // Theme handlers
   ipcMain.handle('get-theme-mode', () => {
     return getThemeMode()
@@ -835,9 +826,6 @@ app.whenReady().then(() => {
     }
     return null
   })
-
-  // Canvas handlers now registered via conveyor (registerCanvasHandlers)
-  // get-sibling-repos now registered via conveyor (registerAnalyticsHandlers)
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')

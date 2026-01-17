@@ -2633,10 +2633,6 @@ export async function getCommitGraphHistory(
   }
 }
 
-// NOTE: Mailmap, ContributorStats, and TechTree functions moved to lib/services/
-// - lib/services/mailmap/ - getMailmap, getAuthorIdentities, suggestMailmapEntries, addMailmapEntries, removeMailmapEntry
-// - lib/services/analytics/ - getContributorStats, getMergedBranchTree, getSiblingRepos
-
 // Diff file info
 export interface DiffFile {
   path: string
