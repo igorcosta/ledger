@@ -420,7 +420,8 @@ export async function getCommitDiff(
           const newLinesCount = match[4] ? parseInt(match[4]) : 1
 
           // Find the lines after this hunk header
-          const hunkStartIndex = part.indexOf(match[0])
+          // IMPORTANT: use match.index (not indexOf) so each hunk parses from its own offset.
+          const hunkStartIndex = match.index ?? part.indexOf(match[0])
           const hunkContent = part.slice(hunkStartIndex + match[0].length)
           const hunkLines: DiffLine[] = []
 
@@ -841,7 +842,8 @@ function parseDiffOutput(
         const newLinesCount = match[4] ? parseInt(match[4]) : 1
 
         // Find the lines after this hunk header
-        const hunkStartIndex = part.indexOf(match[0])
+        // IMPORTANT: use match.index (not indexOf) so each hunk parses from its own offset.
+        const hunkStartIndex = match.index ?? part.indexOf(match[0])
         const hunkContent = part.slice(hunkStartIndex + match[0].length)
         const hunkLines: DiffLine[] = []
 

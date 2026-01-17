@@ -100,25 +100,28 @@ export async function discardAllChanges(ctx: RepositoryContext): Promise<Staging
   try {
     const { git } = requireLocalRepo(ctx)
 
-    const status = await git.status()
+    const statusBefore = await git.status()
+    const totalChanges = statusBefore.files.length
 
-    // First unstage everything
-    if (status.staged.length > 0) {
+    if (totalChanges === 0) {
+      return { success: true, message: 'No changes to discard' }
+    }
+
+    // 1) Unstage everything.
+    // Important: staged-only changes (including newly added files) become unstaged after this.
+    if (statusBefore.staged.length > 0) {
       await git.raw(['restore', '--staged', '.'])
     }
 
-    // Restore tracked files to last commit
-    const trackedModified = [...status.modified, ...status.deleted]
-    if (trackedModified.length > 0) {
-      await git.raw(['restore', '.'])
-    }
+    // 2) Restore tracked files to last commit (covers both previously-unstaged and previously-staged changes)
+    await git.raw(['restore', '.'])
 
-    // Remove untracked files
-    if (status.not_added.length > 0) {
+    // 3) Remove untracked files (covers initially-untracked and "unstaged new files" created by step 1)
+    const statusAfter = await git.status()
+    if (statusAfter.not_added.length > 0) {
       await git.raw(['clean', '-fd'])
     }
 
-    const totalChanges = status.files.length
     return { success: true, message: `Discarded all ${totalChanges} changes` }
   } catch (error) {
     return { success: false, message: (error as Error).message }

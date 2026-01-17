@@ -18,6 +18,7 @@ export const CanvasColumnSchema = z.object({
 export const CanvasConfigSchema = z.object({
   id: z.string(),
   name: z.string(),
+  icon: z.string().optional(),
   columns: z.array(CanvasColumnSchema),
   isPreset: z.boolean().optional(),
 })
