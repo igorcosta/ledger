@@ -112,6 +112,8 @@ export function ERDCanvasPanel({ repoPath }: ERDCanvasPanelProps) {
     if (editorRef.current) {
       clearERDShapes(editorRef.current)
     }
+    // Reset filter flag so the improved filter runs again
+    initialFilterApplied.current = false
     loadSchema()
   }, [loadSchema])
 

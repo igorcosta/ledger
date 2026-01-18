@@ -27,20 +27,46 @@ function calculateNodeHeight(entity: ERDEntity): number {
 }
 
 /**
- * Filter schema to entities with at least N relationships
+ * Filter schema to entities with at least N relationships to OTHER filtered entities.
+ * Uses iterative filtering to ensure all displayed entities actually have
+ * the minimum number of visible connections.
  */
 export function filterSchemaByRelationshipCount(schema: ERDSchema, minRelationships: number): ERDSchema {
-  const relationshipCounts = new Map<string, number>()
+  // Start with all entities
+  let allowedEntityIds = new Set(schema.entities.map((e) => e.id))
 
-  for (const rel of schema.relationships) {
-    relationshipCounts.set(rel.from.entity, (relationshipCounts.get(rel.from.entity) ?? 0) + 1)
-    relationshipCounts.set(rel.to.entity, (relationshipCounts.get(rel.to.entity) ?? 0) + 1)
+  // Iteratively remove entities until stable
+  // This handles the case where an entity has 3+ relationships but those
+  // related entities don't meet the threshold, leaving it orphaned
+  let changed = true
+  while (changed) {
+    changed = false
+
+    // Count relationships only among currently allowed entities
+    const relationshipCounts = new Map<string, number>()
+
+    for (const rel of schema.relationships) {
+      // Only count relationships where both entities are in the allowed set
+      if (allowedEntityIds.has(rel.from.entity) && allowedEntityIds.has(rel.to.entity)) {
+        relationshipCounts.set(rel.from.entity, (relationshipCounts.get(rel.from.entity) ?? 0) + 1)
+        relationshipCounts.set(rel.to.entity, (relationshipCounts.get(rel.to.entity) ?? 0) + 1)
+      }
+    }
+
+    // Remove entities that don't meet threshold
+    const newAllowedIds = new Set<string>()
+    for (const entityId of allowedEntityIds) {
+      if ((relationshipCounts.get(entityId) ?? 0) >= minRelationships) {
+        newAllowedIds.add(entityId)
+      } else {
+        changed = true // We removed something, need to re-check
+      }
+    }
+
+    allowedEntityIds = newAllowedIds
   }
 
-  const filteredEntities = schema.entities.filter(
-    (entity) => (relationshipCounts.get(entity.id) ?? 0) >= minRelationships
-  )
-  const allowedEntityIds = new Set(filteredEntities.map((entity) => entity.id))
+  const filteredEntities = schema.entities.filter((entity) => allowedEntityIds.has(entity.id))
   const filteredRelationships = schema.relationships.filter(
     (rel) => allowedEntityIds.has(rel.from.entity) && allowedEntityIds.has(rel.to.entity)
   )
@@ -91,16 +117,28 @@ export function layoutEntities(
   // Extract positions
   const positions = new Map<string, { x: number; y: number; width: number; height: number }>()
 
+  let index = 0
   for (const nodeId of g.nodes()) {
     const node = g.node(nodeId)
     if (node) {
       // Dagre gives center positions, convert to top-left
+      let x = node.x - node.width / 2
+      let y = node.y - node.height / 2
+
+      // Validate coordinates - dagre can return NaN for edge cases
+      if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        // Fallback to grid layout if dagre fails
+        x = (index % 4) * (NODE_WIDTH + NODE_MARGIN_X) + 50
+        y = Math.floor(index / 4) * (node.height + NODE_MARGIN_Y) + 50
+      }
+
       positions.set(nodeId, {
-        x: node.x - node.width / 2,
-        y: node.y - node.height / 2,
+        x,
+        y,
         width: node.width,
         height: node.height,
       })
+      index++
     }
   }
 
@@ -125,6 +163,19 @@ export function createEntityShapes(editor: Editor, schema: ERDSchema): Map<strin
   for (const entity of schema.entities) {
     const pos = positions.get(entity.id)
     if (!pos) continue
+
+    // Validate all numeric values are finite
+    if (
+      !Number.isFinite(pos.x) ||
+      !Number.isFinite(pos.y) ||
+      !Number.isFinite(pos.width) ||
+      !Number.isFinite(pos.height) ||
+      pos.width <= 0 ||
+      pos.height <= 0
+    ) {
+      console.warn(`[ERD] Skipping entity ${entity.id} with invalid position:`, pos)
+      continue
+    }
 
     const id = `shape:erd-entity-${entity.id}` as TLShapeId
     shapeIds.set(entity.id, id)

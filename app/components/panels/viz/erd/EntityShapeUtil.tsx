@@ -64,9 +64,13 @@ export class EntityShapeUtil extends ShapeUtil<ERDEntityShape> {
   }
 
   getGeometry(shape: ERDEntityShape) {
+    // Ensure valid dimensions (fallback to defaults if NaN)
+    const width = Number.isFinite(shape.props.w) && shape.props.w > 0 ? shape.props.w : MIN_WIDTH
+    const height = Number.isFinite(shape.props.h) && shape.props.h > 0 ? shape.props.h : HEADER_HEIGHT + ROW_HEIGHT + PADDING
+
     return new Rectangle2d({
-      width: shape.props.w,
-      height: shape.props.h,
+      width,
+      height,
       isFilled: true,
     })
   }
@@ -108,7 +112,11 @@ export class EntityShapeUtil extends ShapeUtil<ERDEntityShape> {
   }
 
   indicator(shape: ERDEntityShape) {
-    return <rect width={shape.props.w} height={shape.props.h} rx={4} ry={4} />
+    // Ensure valid dimensions for the indicator rect
+    const width = Number.isFinite(shape.props.w) && shape.props.w > 0 ? shape.props.w : MIN_WIDTH
+    const height = Number.isFinite(shape.props.h) && shape.props.h > 0 ? shape.props.h : HEADER_HEIGHT + ROW_HEIGHT + PADDING
+
+    return <rect width={width} height={height} rx={4} ry={4} />
   }
 }
 
