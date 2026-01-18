@@ -663,11 +663,16 @@ export const laravelProvider: PreviewProvider = {
     if (!server) return
 
     if (!server.useHerd && server.process) {
+      const pid = server.process.pid
       try {
-        if (process.platform === 'win32') {
-          spawn('taskkill', ['/pid', server.process.pid!.toString(), '/f', '/t'])
+        if (pid) {
+          if (process.platform === 'win32') {
+            spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'])
+          } else {
+            process.kill(-pid, 'SIGTERM')
+          }
         } else {
-          process.kill(-server.process.pid!, 'SIGTERM')
+          server.process.kill()
         }
       } catch {
         server.process.kill()

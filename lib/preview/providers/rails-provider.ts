@@ -41,7 +41,7 @@ const execAsync = promisify(exec)
 // ============================================================================
 
 interface RunningServer {
-  process: ChildProcess
+  process: ChildProcess | null // null for puma-dev (managed externally)
   url: string
   port: number
   startedAt: Date
@@ -54,7 +54,7 @@ interface RunningServer {
 
 const runningServers = new Map<string, RunningServer>()
 let nextPort = 3001
-let pumaDevelInstalled: boolean | null = null
+let pumaDevInstalled: boolean | null = null
 
 // ============================================================================
 // Detection Helpers
@@ -95,22 +95,22 @@ function isRailsProject(dirPath: string): { isRails: boolean; hasBindev: boolean
  * puma-dev gives us .test domains automatically
  */
 async function isPumaDevInstalled(): Promise<boolean> {
-  if (pumaDevelInstalled !== null) {
-    return pumaDevelInstalled
+  if (pumaDevInstalled !== null) {
+    return pumaDevInstalled
   }
 
   try {
     await execAsync('which puma-dev')
-    pumaDevelInstalled = true
+    pumaDevInstalled = true
     return true
   } catch {
     try {
       // Check if it's running even if not in PATH
       await execAsync('puma-dev -V')
-      pumaDevelInstalled = true
+      pumaDevInstalled = true
       return true
     } catch {
-      pumaDevelInstalled = false
+      pumaDevInstalled = false
       return false
     }
   }
@@ -585,7 +585,7 @@ export const railsProvider: PreviewProvider = {
       if (linkResult.success && linkResult.url) {
         // puma-dev handles the server automatically
         runningServers.set(worktreePath, {
-          process: null as unknown as ChildProcess, // puma-dev manages the process
+          process: null, // puma-dev manages the process externally
           url: linkResult.url,
           port: 0,
           startedAt: new Date(),
@@ -782,16 +782,21 @@ export const railsProvider: PreviewProvider = {
       fs.promises.unlink(linkPath).catch(() => {
         // Ignore errors (file may not exist)
       })
-    } else {
+    } else if (server.process) {
       // Kill the server process
+      const pid = server.process.pid
       try {
-        if (process.platform === 'win32') {
-          spawn('taskkill', ['/pid', server.process.pid!.toString(), '/f', '/t'])
+        if (pid) {
+          if (process.platform === 'win32') {
+            spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'])
+          } else {
+            process.kill(-pid, 'SIGTERM')
+          }
         } else {
-          process.kill(-server.process.pid!, 'SIGTERM')
+          server.process.kill()
         }
       } catch {
-        server.process?.kill()
+        server.process.kill()
       }
     }
 

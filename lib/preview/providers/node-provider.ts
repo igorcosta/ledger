@@ -496,11 +496,16 @@ export function stopServer(worktreePath: string): boolean {
 
   try {
     // Kill the process tree (npm run dev spawns child processes)
-    if (process.platform === 'win32') {
-      spawn('taskkill', ['/pid', server.process.pid!.toString(), '/f', '/t'])
+    const pid = server.process.pid
+    if (pid) {
+      if (process.platform === 'win32') {
+        spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'])
+      } else {
+        // Send SIGTERM to process group
+        process.kill(-pid, 'SIGTERM')
+      }
     } else {
-      // Send SIGTERM to process group
-      process.kill(-server.process.pid!, 'SIGTERM')
+      server.process.kill()
     }
   } catch {
     // Process might already be dead
