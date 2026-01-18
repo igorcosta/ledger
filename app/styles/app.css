@@ -9006,10 +9006,40 @@ body,
 }
 
 /* tldraw Theme Overrides for ERD */
+.erd-canvas-wrapper .tl-theme__light,
+.erd-canvas-wrapper .tl-theme__dark {
+  --tl-color-background: var(--bg-primary);
+  --tl-color-panel: var(--bg-secondary);
+  --tl-color-panel-contrast: var(--border);
+  --tl-color-panel-overlay: var(--bg-secondary);
+  --tl-color-panel-transparent: transparent;
+  --tl-color-low: var(--bg-tertiary);
+  --tl-color-low-border: var(--border-subtle);
+  --tl-color-divider: var(--border-subtle);
+  --tl-color-text: var(--text-primary);
+  --tl-color-text-0: var(--text-primary);
+  --tl-color-text-1: var(--text-primary);
+  --tl-color-text-3: var(--text-muted);
+  --tl-color-selected: var(--accent);
+  --tl-color-selected-contrast: #ffffff;
+  --tl-color-focus: var(--accent);
+  --tl-color-primary: var(--accent);
+  --tl-color-success: var(--success);
+  --tl-color-warning: var(--warning);
+  --tl-color-danger: var(--error);
+  --tl-color-info: var(--info);
+  --tl-color-grid: var(--border-subtle);
+  --tl-color-hint: var(--bg-hover);
+  --tl-color-overlay: rgba(0, 0, 0, 0.2);
+}
+
 .erd-canvas-wrapper .tl-theme__light {
-  --color-background: var(--bg-primary);
+  --tl-color-muted-1: rgba(0, 0, 0, 0.12);
+  --tl-color-muted-2: rgba(0, 0, 0, 0.06);
 }
 
 .erd-canvas-wrapper .tl-theme__dark {
-  --color-background: var(--bg-primary);
+  --tl-color-muted-1: rgba(255, 255, 255, 0.12);
+  --tl-color-muted-2: rgba(255, 255, 255, 0.06);
+  --tl-color-overlay: rgba(0, 0, 0, 0.35);
 }

@@ -4,7 +4,8 @@
  * Helper functions for ERD layout and rendering
  */
 
-import type { Editor, TLShapeId } from '@tldraw/editor'
+import type { Box, Editor, TLShapeId } from '@tldraw/editor'
+import { Box as TLBox } from '@tldraw/editor'
 import { toRichText } from '@tldraw/tlschema'
 import type { ERDSchema, ERDEntity, ERDRelationship, ERDCardinality } from '@/lib/services/erd/erd-types'
 import type { ERDEntityShape } from './EntityShapeUtil'
@@ -23,6 +24,32 @@ const NODE_MARGIN_Y = 60
  */
 function calculateNodeHeight(entity: ERDEntity): number {
   return HEADER_HEIGHT + Math.max(1, entity.attributes.length) * ROW_HEIGHT + PADDING
+}
+
+/**
+ * Filter schema to entities with at least N relationships
+ */
+export function filterSchemaByRelationshipCount(schema: ERDSchema, minRelationships: number): ERDSchema {
+  const relationshipCounts = new Map<string, number>()
+
+  for (const rel of schema.relationships) {
+    relationshipCounts.set(rel.from.entity, (relationshipCounts.get(rel.from.entity) ?? 0) + 1)
+    relationshipCounts.set(rel.to.entity, (relationshipCounts.get(rel.to.entity) ?? 0) + 1)
+  }
+
+  const filteredEntities = schema.entities.filter(
+    (entity) => (relationshipCounts.get(entity.id) ?? 0) >= minRelationships
+  )
+  const allowedEntityIds = new Set(filteredEntities.map((entity) => entity.id))
+  const filteredRelationships = schema.relationships.filter(
+    (rel) => allowedEntityIds.has(rel.from.entity) && allowedEntityIds.has(rel.to.entity)
+  )
+
+  return {
+    ...schema,
+    entities: filteredEntities,
+    relationships: filteredRelationships,
+  }
 }
 
 /**
@@ -294,6 +321,32 @@ export function renderERDSchema(editor: Editor, schema: ERDSchema): void {
   // Create relationship arrows
   createRelationshipArrows(editor, schema, shapeIds)
 
-  // Zoom to fit all shapes
-  editor.zoomToFit({ animation: { duration: 300 } })
+  // Zoom to fit ERD shapes with extra padding and a max zoom
+  requestAnimationFrame(() => {
+    zoomToERDShapes(editor, { inset: 160, maxZoom: 0.8 })
+  })
+}
+
+/**
+ * Zoom to fit ERD entity shapes with padding and max zoom limit
+ */
+export function zoomToERDShapes(
+  editor: Editor,
+  options: { inset?: number; maxZoom?: number } = {}
+): void {
+  const shapes = editor.getCurrentPageShapes().filter((shape) => shape.type === 'erd-entity')
+  if (shapes.length === 0) return
+
+  const boundsList: Box[] = shapes
+    .map((shape) => editor.getShapePageBounds(shape.id))
+    .filter((bounds): bounds is Box => Boolean(bounds))
+
+  if (boundsList.length === 0) return
+
+  const bounds = TLBox.Common(boundsList)
+  editor.zoomToBounds(bounds, {
+    animation: { duration: 300 },
+    inset: options.inset,
+    targetZoom: options.maxZoom,
+  })
 }

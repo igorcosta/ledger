@@ -9,11 +9,12 @@ import { useCallback, useEffect, useState, useRef } from 'react'
 import { Tldraw, Editor } from 'tldraw'
 import 'tldraw/tldraw.css'
 import { EntityShapeUtil } from './EntityShapeUtil'
-import { renderERDSchema, clearERDShapes } from './erdUtils'
+import { renderERDSchema, clearERDShapes, filterSchemaByRelationshipCount } from './erdUtils'
 import type { ERDSchema, ERDFramework } from '@/lib/services/erd/erd-types'
 
 // Custom shape utilities
 const customShapeUtils = [EntityShapeUtil]
+const INITIAL_RELATIONSHIP_FILTER_MIN = 2
 
 interface ERDCanvasPanelProps {
   repoPath: string | null
@@ -23,11 +24,17 @@ type LoadingState = 'idle' | 'loading' | 'success' | 'error' | 'no-schema'
 
 export function ERDCanvasPanel({ repoPath }: ERDCanvasPanelProps) {
   const editorRef = useRef<Editor | null>(null)
+  const initialFilterApplied = useRef(false)
   const [schema, setSchema] = useState<ERDSchema | null>(null)
   const [framework, setFramework] = useState<ERDFramework | null>(null)
   const [loadingState, setLoadingState] = useState<LoadingState>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isEditorReady, setIsEditorReady] = useState(false)
+
+  // Reset initial filter when repo changes
+  useEffect(() => {
+    initialFilterApplied.current = false
+  }, [repoPath])
 
   // Load ERD schema when repo path changes
   const loadSchema = useCallback(async () => {
@@ -52,12 +59,21 @@ export function ERDCanvasPanel({ repoPath }: ERDCanvasPanelProps) {
 
       if (result.success && result.data) {
         const parsedSchema = result.data as ERDSchema
+        let schemaToRender = parsedSchema
 
-        if (parsedSchema.entities.length === 0) {
+        if (!initialFilterApplied.current) {
+          const filteredSchema = filterSchemaByRelationshipCount(parsedSchema, INITIAL_RELATIONSHIP_FILTER_MIN)
+          if (filteredSchema.entities.length > 0) {
+            schemaToRender = filteredSchema
+          }
+          initialFilterApplied.current = true
+        }
+
+        if (schemaToRender.entities.length === 0) {
           setLoadingState('no-schema')
           setSchema(null)
         } else {
-          setSchema(parsedSchema)
+          setSchema(schemaToRender)
           setLoadingState('success')
         }
       } else {
