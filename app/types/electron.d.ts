@@ -36,10 +36,16 @@ export interface Worktree {
   changedFileCount: number
   additions: number
   deletions: number
-  // For ordering
-  lastModified: string // Directory mtime (ISO string)
-  // Activity tracking
+  // Directory modification time (used for sorting worktrees by creation order)
+  lastModified: string
+  // Activity tracking - dual signals for reliable detection
   activityStatus: WorktreeActivityStatus // 'active' | 'recent' | 'stale' | 'unknown'
+  /** Most recent file modification time in worktree (filesystem level) */
+  lastFileModified: string
+  /** Last git activity: commit time or working directory change time */
+  lastGitActivity: string
+  /** Source of activity status: 'file' | 'git' | 'both' */
+  activitySource: 'file' | 'git' | 'both'
   agentTaskHint: string | null // The agent's current task/prompt if available
 }
 
@@ -47,6 +53,35 @@ export type BranchFilter = 'all' | 'local-only' | 'unmerged'
 export type BranchSort = 'name' | 'last-commit' | 'first-commit' | 'most-commits'
 
 export type WorktreeSort = 'folder-name' | 'last-modified' | 'branch-name'
+
+// Preview system types
+export type PreviewType = 'local' | 'cloud'
+
+export interface PreviewProviderInfo {
+  id: string
+  name: string
+  description: string
+  icon: string
+  type: PreviewType
+  available: boolean
+  compatible: boolean
+  reason?: string
+}
+
+export interface PreviewResult {
+  success: boolean
+  message: string
+  url?: string
+  deploymentId?: string
+  warnings?: string[]
+  worktreePath?: string
+  provider?: string
+}
+
+export interface PreviewAvailability {
+  herdInstalled: boolean
+  isLaravel: boolean
+}
 export type StashFilter = 'all' | 'has-changes' | 'redundant'
 export type StashSort = 'date' | 'message' | 'branch'
 
@@ -225,6 +260,8 @@ export interface StagingDiffHunk {
   newStart: number
   newLines: number
   lines: StagingDiffLine[]
+  /** Raw patch text for this hunk (used for git apply) */
+  rawPatch: string
 }
 
 export interface StagingDiffLine {
@@ -232,6 +269,8 @@ export interface StagingDiffLine {
   content: string
   oldLineNumber?: number
   newLineNumber?: number
+  /** Index of this line within the hunk (0-based, for selection) */
+  lineIndex: number
 }
 
 export interface StagingFileDiff {
@@ -332,7 +371,8 @@ export interface WorkingStatus {
 }
 
 export interface CreateWorktreeOptions {
-  branchName: string
+  branchName?: string // Optional if using commitHash for detached HEAD
+  commitHash?: string // For creating worktree at specific commit (detached HEAD)
   isNewBranch: boolean
   folderPath: string
 }
@@ -438,8 +478,10 @@ export interface ElectronAPI {
   getWorktrees: () => Promise<Worktree[] | { error: string }>
   // Checkout operations
   checkoutBranch: (branchName: string) => Promise<CheckoutResult>
+  checkoutCommit: (commitHash: string, branchName?: string) => Promise<CheckoutResult>
   createBranch: (branchName: string, checkout?: boolean) => Promise<{ success: boolean; message: string }>
   deleteBranch: (branchName: string, force?: boolean) => Promise<{ success: boolean; message: string }>
+  renameBranch: (oldName: string, newName: string) => Promise<{ success: boolean; message: string }>
   deleteRemoteBranch: (branchName: string) => Promise<{ success: boolean; message: string }>
   pushBranch: (branchName?: string, setUpstream?: boolean) => Promise<{ success: boolean; message: string }>
   checkoutRemoteBranch: (remoteBranch: string) => Promise<CheckoutResult>
@@ -535,10 +577,22 @@ export interface ElectronAPI {
     hadConflicts?: boolean
     autoStashed?: boolean
   }>
+  // Hunk-level staging operations
+  stageHunk: (filePath: string, hunkIndex: number) => Promise<{ success: boolean; message: string }>
+  unstageHunk: (filePath: string, hunkIndex: number) => Promise<{ success: boolean; message: string }>
+  discardHunk: (filePath: string, hunkIndex: number) => Promise<{ success: boolean; message: string }>
+  // Line-level staging operations
+  stageLines: (filePath: string, hunkIndex: number, lineIndices: number[]) => Promise<{ success: boolean; message: string }>
+  unstageLines: (filePath: string, hunkIndex: number, lineIndices: number[]) => Promise<{ success: boolean; message: string }>
+  discardLines: (filePath: string, hunkIndex: number, lineIndices: number[]) => Promise<{ success: boolean; message: string }>
+  // File content operations (for inline editing)
+  getFileContent: (filePath: string) => Promise<string | null>
+  saveFileContent: (filePath: string, content: string) => Promise<{ success: boolean; message: string }>
   // PR Review operations
   getPRDetail: (prNumber: number) => Promise<PRDetail | null>
   getPRReviewComments: (prNumber: number) => Promise<PRReviewComment[]>
   getPRFileDiff: (prNumber: number, filePath: string) => Promise<string | null>
+  getPRFileDiffParsed: (prNumber: number, filePath: string) => Promise<StagingFileDiff | null>
   commentOnPR: (prNumber: number, body: string) => Promise<{ success: boolean; message: string }>
   mergePR: (prNumber: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => Promise<{ success: boolean; message: string }>
   // Theme operations

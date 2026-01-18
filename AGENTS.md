@@ -23,10 +23,11 @@ Ledger is a macOS desktop app for viewing git branches, worktrees, and pull requ
 
 ```
 lib/main/main.ts         # IPC handlers, app lifecycle
-lib/main/git-service.ts  # All git operations (~3300 lines)
+lib/services/            # Git operations as pure functions (branch, commit, stash, etc.)
+lib/conveyor/            # Typed IPC with Zod validation (schemas, handlers, APIs)
 lib/preload/preload.ts   # API exposed to renderer
-app/app.tsx              # Main React component (~2600 lines)
-app/styles/app.css       # All styling (~5000 lines)
+app/app.tsx              # Main React component (large)
+app/styles/app.css       # All styling (large)
 app/types/electron.d.ts  # TypeScript types for IPC
 app/components/          # UI components (panels, canvas, window)
 ```
@@ -35,11 +36,11 @@ app/components/          # UI components (panels, canvas, window)
 
 ### Adding a new git operation
 
-1. Add function to `lib/main/git-service.ts`
-2. Add IPC handler in `lib/main/main.ts`
-3. Expose in `lib/preload/preload.ts`
-4. Add types to `app/types/electron.d.ts`
-5. Call from `app/app.tsx`
+1. Add pure function to appropriate service in `lib/services/` (e.g., `branch-service.ts`)
+2. Add Zod schema in `lib/conveyor/schemas/`
+3. Add handler in `lib/conveyor/handlers/`
+4. Add API method in `lib/conveyor/api/`
+5. Call via `window.conveyor.*` from renderer
 
 ### Adding UI elements
 
@@ -64,14 +65,15 @@ npm run build:mac:arm64  # Build for Apple Silicon
 
 ```
 Main Process (Node.js)
-├── main.ts - IPC handlers
-├── git-service.ts - git commands via simple-git
-└── settings-service.ts - persistent storage
+├── main.ts - App lifecycle, handler registration
+├── lib/services/ - Pure functions for git operations
+├── lib/conveyor/handlers/ - IPC handlers with Zod validation
+└── settings-service.ts - Persistent storage
 
-    ↕ IPC (ipcMain.handle / ipcRenderer.invoke)
+    ↕ IPC (conveyor: typed + validated)
 
 Preload Script
-└── preload.ts - exposes window.electronAPI
+└── preload.ts - Exposes window.electronAPI + window.conveyor
 
     ↕ contextBridge
 
@@ -102,24 +104,35 @@ Playwright E2E tests in `tests/app.spec.ts`:
 
 Run with `npm test` (builds first) or `npm run test:headed`.
 
+## Chrome DevTools Protocol (CDP) Access
+
+AI agents can interact with the running Electron app via CDP for debugging and UI interaction.
+
+```bash
+# Start with CDP enabled
+npm run dev -- --remote-debugging-port=9222
+
+# Verify available
+curl -s http://127.0.0.1:9222/json
+```
+
+Helper scripts in `tools/electron-mcp-server/`:
+
+| Script | Purpose |
+|--------|---------|
+| `cdp-snapshot.js` | Get page content and text |
+| `cdp-screenshot.js` | Capture PNG screenshot |
+| `cdp-click.js` | Click element by CSS selector |
+
+Usage: `cd tools/electron-mcp-server && node cdp-screenshot.js`
+
 ## Git Operations Available
 
-| Operation | Function | Notes |
-|-----------|----------|-------|
-| List branches | `getBranchesWithMetadata()` | Includes commit counts, dates |
-| List worktrees | `getEnhancedWorktrees()` | With agent detection |
-| List PRs | `getPullRequests()` | Via `gh pr list` |
-| Switch branch | `checkoutBranch()` | Auto-stashes first |
-| Checkout remote | `checkoutRemoteBranch()` | Creates tracking branch |
-| Checkout PR | `checkoutPRBranch()` | Uses `gh pr checkout`, handles forks |
-| Open in browser | `openBranchInGitHub()` | GitHub URL |
-| Fetch | `pullBranch()` | git fetch remote branch |
-| Stage/Unstage | `stageFile()`, `unstageFile()` | Individual files |
-| Commit | `commitChanges()` | With message and description |
-| View diff | `getCommitDiff()`, `getFileDiff()` | Full diff parsing |
-| Stash ops | `applyStash()`, `popStash()`, etc. | Full stash management |
-| PR details | `getPRDetail()` | Full PR info with comments |
-| **Leapfrog stash** | `applyStashToBranch()` | Apply stash to different branch via worktrees |
+The canonical sources are:
+
+- `app/types/electron.d.ts` - Renderer-facing API types
+- `lib/services/` - Git operations as pure functions
+- `lib/conveyor/schemas/` - IPC channel definitions with Zod validation
 
 ## Error Handling
 
@@ -220,12 +233,10 @@ xcrun notarytool info <submission-id> --keychain-profile "AC_PASSWORD"
 
 ## Areas for Improvement
 
-1. The `git-service.ts` file is large (~3300 lines) - could be modularized
-2. No loading skeletons - just "Loading..." text
-3. No keyboard shortcuts yet
-4. PR integration requires `gh` CLI - could add fallback
-5. Only macOS supported currently
-6. React hooks exhaustive-deps warnings (intentional to prevent infinite loops)
+1. No loading skeletons - just "Loading..." text
+2. No keyboard shortcuts yet
+3. PR integration requires `gh` CLI - could add fallback
+4. Only macOS supported currently
 
 ## IPC Naming Convention
 

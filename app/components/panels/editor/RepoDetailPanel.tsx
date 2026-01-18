@@ -74,6 +74,22 @@ export function RepoDetailPanel({
           <span className="meta-label">Status</span>
           <span className="meta-value">{repo.isCurrent ? 'Currently open in Ledger' : 'Not open'}</span>
         </div>
+        {githubUrl && (
+          <div className="detail-meta-item">
+            <span className="meta-label">GitHub</span>
+            <a 
+              className="meta-value meta-link" 
+              href={githubUrl} 
+              onClick={(e) => {
+                e.preventDefault()
+                handleOpenGitHub()
+              }}
+              title={githubUrl}
+            >
+              {githubUrl.replace('https://github.com/', '')}
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Actions */}
@@ -101,20 +117,6 @@ export function RepoDetailPanel({
         )}
       </div>
 
-      {/* Info section */}
-      {repo.isCurrent ? (
-        <div className="detail-info-section">
-          <div className="info-note">
-            This is the currently open repository. Use the panels to explore branches, PRs, and worktrees.
-          </div>
-        </div>
-      ) : (
-        <div className="detail-info-section">
-          <div className="info-note">
-            Open this repository in Ledger to view its branches, pull requests, and worktrees.
-          </div>
-        </div>
-      )}
     </div>
   )
 }

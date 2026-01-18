@@ -1,5 +1,82 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { conveyor } from '@/lib/conveyor/api'
+import { LEDGER_EVENT_CHANNEL, type LedgerEvent, type LedgerEventType } from '@/lib/events/event-types'
+
+// Event subscription management
+type EventCallback = (event: LedgerEvent) => void
+const eventListeners = new Map<string, Set<EventCallback>>()
+let ipcListenerRegistered = false
+
+function ensureIpcListener() {
+  if (ipcListenerRegistered) return
+  ipcListenerRegistered = true
+
+  ipcRenderer.on(LEDGER_EVENT_CHANNEL, (_ipcEvent, event: LedgerEvent) => {
+    // Notify type-specific listeners
+    const typeListeners = eventListeners.get(event.type)
+    if (typeListeners) {
+      for (const callback of typeListeners) {
+        try {
+          callback(event)
+        } catch (err) {
+          console.error(`[Events] Error in listener for ${event.type}:`, err)
+        }
+      }
+    }
+
+    // Notify wildcard listeners
+    const wildcardListeners = eventListeners.get('*')
+    if (wildcardListeners) {
+      for (const callback of wildcardListeners) {
+        try {
+          callback(event)
+        } catch (err) {
+          console.error('[Events] Error in wildcard listener:', err)
+        }
+      }
+    }
+  })
+}
+
+// Events API for renderer
+const events = {
+  /**
+   * Subscribe to events of a specific type
+   * @param type Event type or '*' for all events
+   * @param callback Function to call when event occurs
+   * @returns Unsubscribe function
+   */
+  on(type: LedgerEventType | '*', callback: EventCallback): () => void {
+    ensureIpcListener()
+
+    if (!eventListeners.has(type)) {
+      eventListeners.set(type, new Set())
+    }
+    eventListeners.get(type)!.add(callback)
+
+    // Return unsubscribe function
+    return () => {
+      const listeners = eventListeners.get(type)
+      if (listeners) {
+        listeners.delete(callback)
+        if (listeners.size === 0) {
+          eventListeners.delete(type)
+        }
+      }
+    }
+  },
+
+  /**
+   * Subscribe to an event once
+   */
+  once(type: LedgerEventType | '*', callback: EventCallback): () => void {
+    const unsubscribe = this.on(type, (event) => {
+      unsubscribe()
+      callback(event)
+    })
+    return unsubscribe
+  },
+}
 
 // Git API for Ledger
 const electronAPI = {
@@ -13,8 +90,10 @@ const electronAPI = {
   getWorktrees: () => ipcRenderer.invoke('get-worktrees'),
   // Checkout operations
   checkoutBranch: (branchName: string) => ipcRenderer.invoke('checkout-branch', branchName),
+  checkoutCommit: (commitHash: string, branchName?: string) => ipcRenderer.invoke('checkout-commit', commitHash, branchName),
   createBranch: (branchName: string, checkout?: boolean) => ipcRenderer.invoke('create-branch', branchName, checkout),
   deleteBranch: (branchName: string, force?: boolean) => ipcRenderer.invoke('delete-branch', branchName, force),
+  renameBranch: (oldName: string, newName: string) => ipcRenderer.invoke('rename-branch', oldName, newName),
   deleteRemoteBranch: (branchName: string) => ipcRenderer.invoke('delete-remote-branch', branchName),
   pushBranch: (branchName?: string, setUpstream?: boolean) =>
     ipcRenderer.invoke('push-branch', branchName, setUpstream),
@@ -23,7 +102,7 @@ const electronAPI = {
   // Pull requests
   getPullRequests: () => ipcRenderer.invoke('get-pull-requests'),
   openPullRequest: (url: string) => ipcRenderer.invoke('open-pull-request', url),
-  createPullRequest: (options: { title: string; body?: string; baseBranch?: string; draft?: boolean; web?: boolean }) =>
+  createPullRequest: (options: { title: string; body?: string; headBranch?: string; baseBranch?: string; draft?: boolean; web?: boolean }) =>
     ipcRenderer.invoke('create-pull-request', options),
   checkoutPRBranch: (prNumber: number) => ipcRenderer.invoke('checkout-pr-branch', prNumber),
   // Remote operations
@@ -72,7 +151,7 @@ const electronAPI = {
   applyWorktreeChanges: (worktreePath: string) => ipcRenderer.invoke('apply-worktree-changes', worktreePath),
   removeWorktree: (worktreePath: string, force?: boolean) =>
     ipcRenderer.invoke('remove-worktree', worktreePath, force ?? false),
-  createWorktree: (options: { branchName: string; isNewBranch: boolean; folderPath: string }) =>
+  createWorktree: (options: { branchName?: string; commitHash?: string; isNewBranch: boolean; folderPath: string }) =>
     ipcRenderer.invoke('create-worktree', options),
   selectWorktreeFolder: () => ipcRenderer.invoke('select-worktree-folder'),
   // Worktree-specific staging & commit operations
@@ -99,6 +178,17 @@ const electronAPI = {
   commitChanges: (message: string, description?: string, force?: boolean) =>
     ipcRenderer.invoke('commit-changes', message, description, force),
   pullCurrentBranch: () => ipcRenderer.invoke('pull-current-branch'),
+  // Hunk-level staging operations
+  stageHunk: (filePath: string, hunkIndex: number) => ipcRenderer.invoke('stage-hunk', filePath, hunkIndex),
+  unstageHunk: (filePath: string, hunkIndex: number) => ipcRenderer.invoke('unstage-hunk', filePath, hunkIndex),
+  discardHunk: (filePath: string, hunkIndex: number) => ipcRenderer.invoke('discard-hunk', filePath, hunkIndex),
+  // Line-level staging operations
+  stageLines: (filePath: string, hunkIndex: number, lineIndices: number[]) =>
+    ipcRenderer.invoke('stage-lines', filePath, hunkIndex, lineIndices),
+  unstageLines: (filePath: string, hunkIndex: number, lineIndices: number[]) =>
+    ipcRenderer.invoke('unstage-lines', filePath, hunkIndex, lineIndices),
+  discardLines: (filePath: string, hunkIndex: number, lineIndices: number[]) =>
+    ipcRenderer.invoke('discard-lines', filePath, hunkIndex, lineIndices),
   // PR Review operations
   getPRDetail: (prNumber: number) => ipcRenderer.invoke('get-pr-detail', prNumber),
   getPRReviewComments: (prNumber: number) => ipcRenderer.invoke('get-pr-review-comments', prNumber),
@@ -130,17 +220,26 @@ const electronAPI = {
   getSiblingRepos: () => ipcRenderer.invoke('get-sibling-repos'),
 }
 
-// Use `contextBridge` APIs to expose APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
+// Security verification (from kaurifund's bug fix)
+if (!process.contextIsolated) {
+  console.error(
+    '[SECURITY] Context isolation is DISABLED! This is a critical security risk.\n' +
+    'Ensure webPreferences.contextIsolation is set to true in lib/main/app.ts'
+  )
+}
+
+// Expose APIs to renderer via contextBridge
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('conveyor', conveyor)
+    contextBridge.exposeInMainWorld('ledgerEvents', events)
     contextBridge.exposeInMainWorld('electronAPI', electronAPI)
   } catch (error) {
-    console.error(error)
+    console.error('[Preload] Failed to expose APIs:', error)
   }
 } else {
-  window.conveyor = conveyor
-  window.electronAPI = electronAPI
+  // Fallback for testing without context isolation
+  ;(window as unknown as { conveyor: typeof conveyor }).conveyor = conveyor
+  ;(window as unknown as { ledgerEvents: typeof events }).ledgerEvents = events
+  ;(window as unknown as { electronAPI: typeof electronAPI }).electronAPI = electronAPI
 }

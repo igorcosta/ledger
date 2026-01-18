@@ -101,6 +101,12 @@ export function StashList({
     ? 'No stashes match filter'
     : 'No stashes'
 
+  // Build active filter label
+  const activeFilterParts: string[] = []
+  if (search.trim()) activeFilterParts.push(`"${search.trim()}"`)
+  if (filter !== 'all') activeFilterParts.push(filter === 'has-changes' ? 'Has Changes' : 'Redundant')
+  const activeFilter = activeFilterParts.length > 0 ? activeFilterParts.join(' · ') : undefined
+
   return (
     <div className="list-panel stash-list-panel">
       <ListPanelHeader
@@ -109,6 +115,7 @@ export function StashList({
         count={filteredStashes.length}
         controlsOpen={controlsOpen}
         onToggleControls={() => setControlsOpen(!controlsOpen)}
+        activeFilter={activeFilter}
       />
 
       {/* Controls */}

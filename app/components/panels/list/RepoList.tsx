@@ -97,6 +97,9 @@ export function RepoList({
       ? 'Loading...'
       : 'No sibling repositories found'
 
+  // Build active filter label
+  const activeFilter = search.trim() ? `"${search.trim()}"` : undefined
+
   return (
     <div className="list-panel repo-list-panel">
       <ListPanelHeader
@@ -105,6 +108,7 @@ export function RepoList({
         count={filteredRepos.length}
         controlsOpen={controlsOpen}
         onToggleControls={() => setControlsOpen(!controlsOpen)}
+        activeFilter={activeFilter}
       />
 
       {/* Controls */}

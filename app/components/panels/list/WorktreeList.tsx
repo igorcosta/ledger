@@ -178,6 +178,12 @@ export function WorktreeList({
     ? 'No worktrees match filter' 
     : 'No worktrees found'
 
+  // Build active filter label
+  const activeFilterParts: string[] = []
+  if (search.trim()) activeFilterParts.push(`"${search.trim()}"`)
+  if (parentFilter !== 'all') activeFilterParts.push(parentFilter)
+  const activeFilter = activeFilterParts.length > 0 ? activeFilterParts.join(' · ') : undefined
+
   return (
     <div className="list-panel worktree-list-panel">
       <ListPanelHeader
@@ -186,6 +192,7 @@ export function WorktreeList({
         count={filteredWorktrees.length}
         controlsOpen={controlsOpen}
         onToggleControls={() => setControlsOpen(!controlsOpen)}
+        activeFilter={activeFilter}
       />
 
       {/* Controls */}

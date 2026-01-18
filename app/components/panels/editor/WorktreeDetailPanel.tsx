@@ -6,31 +6,47 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import type { Worktree, UncommittedFile, StagingFileDiff, WorkingStatus } from '../../../types/electron'
+import type {
+  Worktree,
+  UncommittedFile,
+  StagingFileDiff,
+  WorkingStatus,
+  PreviewProviderInfo,
+} from '../../../types/electron'
 import type { StatusMessage } from '../../../types/app-types'
+import { formatRelativeTime } from '@/app/utils/time'
+
+// Local time formatting helpers are centralized in `app/utils/time.ts`
 
 export interface WorktreeDetailPanelProps {
   worktree: Worktree
   currentBranch: string
+  repoPath: string | null
   switching?: boolean
   onStatusChange?: (status: StatusMessage | null) => void
   onRefresh?: () => Promise<void>
   onClearFocus?: () => void
   onCheckoutWorktree?: (worktree: Worktree) => void
   onOpenStaging?: () => void
+  onBranchClick?: (branchName: string) => void
 }
 
 export function WorktreeDetailPanel({
   worktree,
   currentBranch,
+  repoPath,
   switching,
   onStatusChange,
   onRefresh,
   onClearFocus,
   onCheckoutWorktree,
   onOpenStaging,
+  onBranchClick,
 }: WorktreeDetailPanelProps) {
   const [actionInProgress, setActionInProgress] = useState(false)
+  // Preview provider state
+  const [previewProviders, setPreviewProviders] = useState<PreviewProviderInfo[]>([])
+  const [previewLoading, setPreviewLoading] = useState(false)
   // Staging/commit state
   const [showCommitUI, setShowCommitUI] = useState(false)
   const [workingStatus, setWorkingStatus] = useState<WorkingStatus | null>(null)
@@ -102,6 +118,25 @@ export function WorktreeDetailPanel({
       document.removeEventListener('keydown', handleEscape)
     }
   }, [fileContextMenu])
+
+  const bestProvider = previewProviders.find((provider) => provider.compatible) || null
+
+  // Check preview providers when worktree/repo changes
+  useEffect(() => {
+    if (!repoPath) {
+      setPreviewProviders([])
+      return
+    }
+    const loadProviders = async () => {
+      try {
+        const providers = await window.conveyor.preview.getProviders(repoPath, worktree.path)
+        setPreviewProviders(providers)
+      } catch {
+        setPreviewProviders([])
+      }
+    }
+    loadProviders()
+  }, [repoPath, worktree.path])
 
   const loadWorkingStatus = async () => {
     setLoadingStatus(true)
@@ -294,6 +329,30 @@ export function WorktreeDetailPanel({
     await window.electronAPI.openWorktree(worktree.path)
   }
 
+  const handlePreviewInBrowser = async () => {
+    if (!repoPath) {
+      onStatusChange?.({ type: 'error', message: 'No repository path available' })
+      return
+    }
+
+    setPreviewLoading(true)
+    onStatusChange?.({ type: 'info', message: 'Setting up preview...' })
+
+    try {
+      const result = await window.conveyor.preview.autoPreviewWorktree(worktree.path, repoPath)
+      if (result.success) {
+        const warningMsg = result.warnings?.length ? ` (${result.warnings.join(', ')})` : ''
+        onStatusChange?.({ type: 'success', message: `Opened ${result.url}${warningMsg}` })
+      } else {
+        onStatusChange?.({ type: 'error', message: result.message })
+      }
+    } catch (error) {
+      onStatusChange?.({ type: 'error', message: (error as Error).message })
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
   const handleRemove = async (force: boolean = false) => {
     const confirmMsg = force
       ? `Force remove worktree "${worktree.displayName}"? This will discard any uncommitted changes.`
@@ -341,7 +400,18 @@ export function WorktreeDetailPanel({
           {worktree.branch && (
             <div className="detail-meta-item">
               <span className="meta-label">Branch</span>
-              <code className="meta-value">{worktree.branch}</code>
+              {onBranchClick ? (
+                <button
+                  className="meta-value-link"
+                  onClick={() => onBranchClick(worktree.branch!)}
+                  title={`Go to branch: ${worktree.branch}`}
+                >
+                  <span className="branch-icon">⎇</span>
+                  {worktree.branch}
+                </button>
+              ) : (
+                <code className="meta-value">{worktree.branch}</code>
+              )}
             </div>
           )}
           <div className="detail-meta-item">
@@ -385,6 +455,20 @@ export function WorktreeDetailPanel({
               Open Staging
             </button>
           )}
+          {bestProvider && (
+            <button
+              className="btn btn-secondary"
+              onClick={handlePreviewInBrowser}
+              disabled={!bestProvider.available || previewLoading}
+              title={
+                !bestProvider.available
+                  ? bestProvider.reason || 'Preview provider unavailable'
+                  : `Open preview with ${bestProvider.name}`
+              }
+            >
+              {previewLoading ? 'Opening...' : 'Preview'}
+            </button>
+          )}
         </div>
       </div>
     )
@@ -404,7 +488,18 @@ export function WorktreeDetailPanel({
         {worktree.branch && (
           <div className="detail-meta-item full-width">
             <span className="meta-label">Branch</span>
-            <code className="meta-value">{worktree.branch}</code>
+            {onBranchClick ? (
+              <button
+                className="meta-value-link"
+                onClick={() => onBranchClick(worktree.branch!)}
+                title={`Go to branch: ${worktree.branch}`}
+              >
+                <span className="branch-icon">⎇</span>
+                {worktree.branch}
+              </button>
+            ) : (
+              <code className="meta-value">{worktree.branch}</code>
+            )}
           </div>
         )}
         <div className="detail-meta-item full-width">
@@ -436,20 +531,45 @@ export function WorktreeDetailPanel({
         </div>
         {/* Activity status for agent worktrees */}
         {worktree.agent !== 'unknown' && worktree.agent !== 'working-folder' && (
-          <div className="detail-meta-item">
-            <span className="meta-label">Activity</span>
-            <span className={`meta-value activity-status activity-${worktree.activityStatus}`}>
-              {worktree.activityStatus === 'active' && '● Active now'}
-              {worktree.activityStatus === 'recent' && '◐ Recent (< 1 hour)'}
-              {worktree.activityStatus === 'stale' && '○ Stale (> 1 hour)'}
-              {worktree.activityStatus === 'unknown' && '○ Inactive'}
-            </span>
-          </div>
+          <>
+            <div className="detail-meta-item">
+              <span className="meta-label">Activity</span>
+              <span className={`meta-value activity-status activity-${worktree.activityStatus}`}>
+                {worktree.activityStatus === 'active' && '● Active now'}
+                {worktree.activityStatus === 'recent' && '◐ Recent (< 1 hour)'}
+                {worktree.activityStatus === 'stale' && '○ Stale (> 1 hour)'}
+                {worktree.activityStatus === 'unknown' && '○ Inactive'}
+                {worktree.activitySource && worktree.activitySource !== 'both' && (
+                  <span className="activity-source-hint" title={`Activity detected from ${worktree.activitySource === 'file' ? 'file changes' : 'git activity'}`}>
+                    {' '}({worktree.activitySource === 'file' ? 'files' : 'git'})
+                  </span>
+                )}
+              </span>
+            </div>
+            {/* Show detailed activity timestamps when status is active or recent */}
+            {(worktree.activityStatus === 'active' || worktree.activityStatus === 'recent') && (
+              <div className="detail-meta-item full-width activity-details">
+                <span className="meta-label">Activity Details</span>
+                <div className="activity-timestamps">
+                  <span className="activity-timestamp" title="Most recent file modification in worktree">
+                    <span className="timestamp-icon">📁</span>
+                    <span className="timestamp-label">Files:</span>
+                    <span className="timestamp-value">{formatRelativeTime(worktree.lastFileModified)}</span>
+                  </span>
+                  <span className="activity-timestamp" title="Last git commit or working directory change">
+                    <span className="timestamp-icon">📊</span>
+                    <span className="timestamp-label">Git:</span>
+                    <span className="timestamp-value">{formatRelativeTime(worktree.lastGitActivity)}</span>
+                  </span>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Show agent task hint for Cursor agents */}
-      {worktree.agent === 'cursor' && worktree.agentTaskHint && (
+      {/* Show agent task hint for AI agents (Cursor, Claude Code) */}
+      {(worktree.agent === 'cursor' || worktree.agent === 'claude') && worktree.agentTaskHint && (
         <div className="agent-task-callout">
           <div className="agent-task-header">
             <span className="agent-task-icon">🤖</span>
@@ -748,6 +868,21 @@ export function WorktreeDetailPanel({
         <button className="btn btn-secondary" onClick={handleOpenInFinder} disabled={actionInProgress}>
           Open in Finder
         </button>
+
+        {bestProvider && (
+          <button
+            className="btn btn-secondary"
+            onClick={handlePreviewInBrowser}
+            disabled={!bestProvider.available || previewLoading || actionInProgress}
+            title={
+              !bestProvider.available
+                ? bestProvider.reason || 'Preview provider unavailable'
+                : `Open preview with ${bestProvider.name}`
+            }
+          >
+            {previewLoading ? 'Opening...' : 'Preview'}
+          </button>
+        )}
 
         {isCurrent && onOpenStaging && (
           <button className="btn btn-secondary" onClick={onOpenStaging} disabled={actionInProgress}>

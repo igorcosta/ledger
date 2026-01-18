@@ -1,0 +1,47 @@
+/**
+ * Branch Service Module
+ *
+ * Exports all branch-related types and functions.
+ *
+ * Usage:
+ * ```typescript
+ * import { getBranches, checkoutBranch, BranchInfo } from '@/lib/services/branch'
+ *
+ * const ctx = getRepositoryManager().requireActive()
+ * const { branches } = await getBranches(ctx)
+ * ```
+ */
+
+// Types
+export type {
+  BranchInfo,
+  BranchesResult,
+  BranchMetadata,
+  CheckoutResult,
+  PushResult,
+  CreateBranchResult,
+  PullResult,
+  PullCurrentBranchResult,
+  RenameBranchResult,
+} from './branch-types'
+
+// Service functions
+export {
+  getBranches,
+  getBranchMetadata,
+  getUnmergedBranches,
+  getBranchesBasic,
+  getBranchesWithMetadata,
+  hasUncommittedChanges,
+  stashChanges,
+  checkoutBranch,
+  checkoutCommit,
+  pushBranch,
+  createBranch,
+  checkoutRemoteBranch,
+  pullBranch,
+  pullCurrentBranch,
+  deleteBranch,
+  renameBranch,
+  deleteRemoteBranch,
+} from './branch-service'

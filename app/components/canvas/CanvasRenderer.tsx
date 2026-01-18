@@ -11,7 +11,7 @@
  * - Canvas config determines layout
  */
 
-import { useCallback, type ReactNode } from 'react'
+import React, { useCallback, useState, useEffect, useRef, type ReactNode } from 'react'
 import type { Column } from '../../types/app-types'
 import type {
   PullRequest,
@@ -171,6 +171,7 @@ export function CanvasRenderer({
     activeCanvas,
     resizeColumn,
     reorderColumns,
+    setColumnPanel,
   } = useCanvas()
 
   // Render a list panel based on column config
@@ -279,11 +280,13 @@ export function CanvasRenderer({
               worktrees={data.worktrees}
               stashes={data.stashes}
               repoPath={data.repoPath}
+              workingStatus={data.workingStatus}
               selectedPR={selection.selectedPR}
               selectedBranch={selection.selectedBranch}
               selectedWorktree={selection.selectedWorktree}
               selectedStash={selection.selectedStash}
               selectedRepo={selection.selectedRepo}
+              uncommittedSelected={selection.uncommittedSelected}
               onSelectPR={handlers.onSelectPR}
               onDoubleClickPR={handlers.onDoubleClickPR}
               onContextMenuPR={handlers.onContextMenuPR}
@@ -297,6 +300,10 @@ export function CanvasRenderer({
               onDoubleClickStash={handlers.onDoubleClickStash}
               onSelectRepo={handlers.onSelectRepo}
               onDoubleClickRepo={handlers.onDoubleClickRepo}
+              onSelectUncommitted={handlers.onSelectUncommitted}
+              onDoubleClickUncommitted={handlers.onDoubleClickUncommitted}
+              onCreateBranch={handlers.onCreateBranch}
+              onCreateWorktree={handlers.onCreateWorktree}
               formatRelativeTime={handlers.formatRelativeTime}
             />
           )
@@ -323,21 +330,131 @@ export function CanvasRenderer({
     [data, selection, handlers, uiState]
   )
 
+  // Git graph column widths state
+  // Default widths: graph = 68px (3 branches), refs = null (auto), message = null (flex), meta = null (auto)
+  type GitGraphColumn = 'graph' | 'refs' | 'message' | 'meta'
+  const DEFAULT_COLUMN_WIDTHS = {
+    graph: 68,      // 3 lanes * 16px + 20px padding
+    refs: null,     // auto-size based on content
+    message: null,  // flex to fill available space
+    meta: null,     // auto-size based on content
+  }
+  const [columnWidths, setColumnWidths] = useState<Record<GitGraphColumn, number | null>>(DEFAULT_COLUMN_WIDTHS)
+  const [resizingColumn, setResizingColumn] = useState<GitGraphColumn | null>(null)
+  const resizeStartRef = useRef<{ startX: number; startWidth: number; column: GitGraphColumn } | null>(null)
+
+  // Handle column resize
+  useEffect(() => {
+    if (!resizingColumn) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizeStartRef.current) return
+      const delta = e.clientX - resizeStartRef.current.startX
+      const minWidths: Record<GitGraphColumn, number> = {
+        graph: 36,
+        refs: 60,
+        message: 100,
+        meta: 80,
+      }
+      const newWidth = Math.max(minWidths[resizeStartRef.current.column], resizeStartRef.current.startWidth + delta)
+      setColumnWidths(prev => ({ ...prev, [resizeStartRef.current!.column]: newWidth }))
+    }
+
+    const handleMouseUp = () => {
+      setResizingColumn(null)
+      resizeStartRef.current = null
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [resizingColumn])
+
+  const handleStartColumnResize = useCallback((column: GitGraphColumn, startX: number, currentWidth: number) => {
+    resizeStartRef.current = { startX, startWidth: currentWidth, column }
+    setResizingColumn(column)
+  }, [])
+
+  const handleResetColumnWidth = useCallback((column: GitGraphColumn) => {
+    setColumnWidths(prev => ({ ...prev, [column]: DEFAULT_COLUMN_WIDTHS[column] }))
+  }, [])
+
   // Render a viz panel based on column config
   const renderVizSlot = useCallback(
     (column: Column): ReactNode => {
+      // Shared viz header with chart selector
+      const VizHeader = ({ 
+        panel, 
+        label, 
+        icon 
+      }: { 
+        panel: string
+        label: string
+        icon: string 
+      }) => {
+        const [controlsOpen, setControlsOpen] = useState(false)
+        
+        const chartOptions = [
+          { id: 'git-graph', label: 'Git Graph', icon: '◉' },
+          { id: 'timeline', label: 'Timeline', icon: '◔' },
+          { id: 'tech-tree', label: 'Tech Tree', icon: '⬡' },
+        ]
+        
+        return (
+          <>
+            <div 
+              className={`column-header clickable-header ${controlsOpen ? 'open' : ''}`}
+              onClick={() => setControlsOpen(!controlsOpen)}
+            >
+              <div className="column-title">
+                <h2>
+                  <span className="column-icon">{icon}</span>
+                  {label}
+                </h2>
+                <span className={`header-chevron ${controlsOpen ? 'open' : ''}`}>▾</span>
+              </div>
+            </div>
+            {controlsOpen && (
+              <div className="column-controls" onClick={(e) => e.stopPropagation()}>
+                <div className="control-row">
+                  <label>Chart</label>
+                  <select
+                    value={panel}
+                    onChange={(e) => {
+                      // Update column panel through canvas context
+                      if (activeCanvas) {
+                        setColumnPanel(activeCanvas.id, column.id, e.target.value as import('../../types/app-types').PanelType)
+                      }
+                      setControlsOpen(false)
+                    }}
+                    className="control-select"
+                  >
+                    {chartOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.icon} {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+          </>
+        )
+      }
+      
       switch (column.panel) {
         case 'git-graph':
           return (
             <div className="viz-panel git-graph-panel">
-              <div className="column-header">
-                <div className="column-title">
-                  <h2>
-                    <span className="column-icon">{column.icon || '◉'}</span>
-                    {column.label || 'History'}
-                  </h2>
-                </div>
-              </div>
+              <VizHeader 
+                panel={column.panel}
+                label={column.label || 'History'} 
+                icon={column.icon || '◉'} 
+              />
               <div className="viz-panel-content">
                 <GitGraph
                   commits={data.commits}
@@ -345,6 +462,10 @@ export function CanvasRenderer({
                   onSelectCommit={handlers.onSelectCommit}
                   onDoubleClickCommit={handlers.onDoubleClickCommit}
                   formatRelativeTime={handlers.formatRelativeTime}
+                  columnWidths={columnWidths}
+                  onStartColumnResize={handleStartColumnResize}
+                  onResetColumnWidth={handleResetColumnWidth}
+                  resizingColumn={resizingColumn}
                 />
               </div>
             </div>
@@ -353,27 +474,31 @@ export function CanvasRenderer({
         case 'timeline':
           return (
             <div className="viz-panel timeline-panel">
-              <ContributorChart
-                topN={10}
-                bucketSize="week"
-                height={500}
-                invertedTheme={true}
-                onManageUsers={handlers.onOpenMailmap}
+              <VizHeader 
+                panel={column.panel}
+                label={column.label || 'Timeline'} 
+                icon={column.icon || '◔'} 
               />
+              <div className="viz-panel-content">
+                <ContributorChart
+                  topN={10}
+                  bucketSize="week"
+                  height={500}
+                  invertedTheme={true}
+                  onManageUsers={handlers.onOpenMailmap}
+                />
+              </div>
             </div>
           )
 
         case 'tech-tree':
           return (
             <div className="viz-panel tech-tree-panel">
-              <div className="column-header">
-                <div className="column-title">
-                  <h2>
-                    <span className="column-icon">{column.icon || '⬡'}</span>
-                    {column.label || 'Tech Tree'}
-                  </h2>
-                </div>
-              </div>
+              <VizHeader 
+                panel={column.panel}
+                label={column.label || 'Tech Tree'} 
+                icon={column.icon || '⬡'} 
+              />
               <div className="viz-panel-content">
                 <TechTreeChart
                   limit={25}
@@ -411,7 +536,19 @@ export function CanvasRenderer({
           )
       }
     },
-    [data.commits, data.fileGraph, data.fileGraphLoading, selection.selectedCommit, handlers]
+    [
+      data.commits,
+      data.fileGraph,
+      data.fileGraphLoading,
+      selection.selectedCommit,
+      handlers,
+      activeCanvas,
+      setColumnPanel,
+      columnWidths,
+      handleStartColumnResize,
+      handleResetColumnWidth,
+      resizingColumn,
+    ]
   )
 
   // Render an editor panel based on column config

@@ -1,17 +1,27 @@
 /**
- * PRDetailPanel - Full PR review interface with conversation, files, and commits tabs
+ * PRReviewPanel - Full PR review interface with conversation, files, and commits tabs
  *
  * Shows PR details, allows commenting, merging, and viewing file diffs.
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import type { PullRequest, PRDetail, PRReviewComment } from '../../../types/electron'
+import { useState, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react'
+import type {
+  PullRequest,
+  PRDetail,
+  PRReviewComment,
+  StagingFileDiff,
+  PreviewProviderInfo,
+} from '../../../types/electron'
+import { DiffViewer } from '../../ui/DiffViewer'
 
-export interface PRDetailPanelProps {
+export interface PRReviewPanelProps {
   pr: PullRequest
+  repoPath: string | null
   formatRelativeTime: (date: string) => string
   onCheckout?: (pr: PullRequest) => void
   onPRMerged?: () => void
+  onStatusChange?: (status: { type: 'info' | 'success' | 'error'; message: string } | null) => void
+  onNavigateToBranch?: (branchName: string) => void
   switching?: boolean
 }
 
@@ -25,56 +35,45 @@ function isAIAuthor(login: string): boolean {
   return AI_AUTHORS.some((ai) => lower.includes(ai)) || lower.endsWith('[bot]') || lower.endsWith('-bot')
 }
 
-// Helper to render text with clickable links
-function renderTextWithLinks(text: string): React.ReactNode {
-  // URL regex pattern
-  const urlPattern = /(https?:\/\/[^\s<>[\](){}'"]+)/g
-  const parts = text.split(urlPattern)
-  
-  return parts.map((part, index) => {
-    if (urlPattern.test(part)) {
-      // Reset the regex lastIndex after test
-      urlPattern.lastIndex = 0
-      return (
-        <a
-          key={index}
-          href={part}
-          className="pr-comment-link"
-          onClick={(e) => {
-            e.preventDefault()
-            window.electronAPI.openPullRequest(part)
-          }}
-          title={part}
-        >
-          {part}
-        </a>
-      )
-    }
-    return part
-  })
-}
-
-export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, switching }: PRDetailPanelProps) {
+export function PRReviewPanel({ pr, repoPath, formatRelativeTime, onCheckout, onPRMerged, onStatusChange, onNavigateToBranch, switching }: PRReviewPanelProps) {
   const [activeTab, setActiveTab] = useState<PRTab>('conversation')
   const [prDetail, setPrDetail] = useState<PRDetail | null>(null)
   const [reviewComments, setReviewComments] = useState<PRReviewComment[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [fileDiff, setFileDiff] = useState<string | null>(null)
+  const [fileDiff, setFileDiff] = useState<StagingFileDiff | null>(null)
   const [loadingDiff, setLoadingDiff] = useState(false)
   const [showAIComments, setShowAIComments] = useState(true)
   const [commentText, setCommentText] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
   const [commentStatus, setCommentStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [mergingPR, setMergingPR] = useState(false)
+  // Preview provider state
+  const [previewProviders, setPreviewProviders] = useState<PreviewProviderInfo[]>([])
+  const [previewLoading, setPreviewLoading] = useState(false)
+
+  // Ref to track status timeout for cleanup
+  const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  
+  // Ref for the diff container to scroll into view
+  const diffContainerRef = useRef<HTMLDivElement>(null)
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Load full PR details
   const loadPRDetail = useCallback(async () => {
     setLoading(true)
     try {
       const [detail, comments] = await Promise.all([
-        window.electronAPI.getPRDetail(pr.number),
-        window.electronAPI.getPRReviewComments(pr.number),
+        window.conveyor.pr.getPRDetail(pr.number),
+        window.conveyor.pr.getPRReviewComments(pr.number),
       ])
       setPrDetail(detail)
       setReviewComments(comments)
@@ -89,6 +88,28 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
     loadPRDetail()
   }, [loadPRDetail])
 
+  const bestProvider = useMemo(
+    () => previewProviders.find((provider) => provider.compatible) || null,
+    [previewProviders]
+  )
+
+  // Check preview providers when repoPath changes
+  useEffect(() => {
+    if (!repoPath) {
+      setPreviewProviders([])
+      return
+    }
+    const loadProviders = async () => {
+      try {
+        const providers = await window.conveyor.preview.getProviders(repoPath)
+        setPreviewProviders(providers)
+      } catch {
+        setPreviewProviders([])
+      }
+    }
+    loadProviders()
+  }, [repoPath])
+
   // Submit a comment
   const handleSubmitComment = async () => {
     if (!commentText.trim() || submittingComment) return
@@ -97,15 +118,16 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
     setCommentStatus(null)
 
     try {
-      const result = await window.electronAPI.commentOnPR(pr.number, commentText.trim())
+      const result = await window.conveyor.pr.commentOnPR(pr.number, commentText.trim())
 
       if (result.success) {
         setCommentText('')
         setCommentStatus({ type: 'success', message: 'Comment added!' })
         // Reload PR details to show the new comment
         await loadPRDetail()
-        // Clear success message after a delay
-        setTimeout(() => setCommentStatus(null), 3000)
+        // Clear success message after a delay (with cleanup tracking)
+        if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current)
+        statusTimeoutRef.current = setTimeout(() => setCommentStatus(null), 3000)
       } else {
         setCommentStatus({ type: 'error', message: result.message })
       }
@@ -124,7 +146,7 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
     setCommentStatus(null)
 
     try {
-      const result = await window.electronAPI.mergePR(pr.number, 'merge')
+      const result = await window.conveyor.pr.mergePR(pr.number, 'squash')
 
       if (result.success) {
         setCommentStatus({ type: 'success', message: 'PR merged!' })
@@ -132,7 +154,9 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
         await loadPRDetail()
         // Notify parent to refresh PR list
         if (onPRMerged) onPRMerged()
-        setTimeout(() => setCommentStatus(null), 3000)
+        // Clear success message after a delay (with cleanup tracking)
+        if (statusTimeoutRef.current) clearTimeout(statusTimeoutRef.current)
+        statusTimeoutRef.current = setTimeout(() => setCommentStatus(null), 3000)
       } else {
         setCommentStatus({ type: 'error', message: result.message })
       }
@@ -143,27 +167,74 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
     }
   }
 
-  // Load file diff when selected
+  // Preview PR in browser
+  const handlePreviewInBrowser = async () => {
+    if (!repoPath || !prDetail) {
+      onStatusChange?.({ type: 'error', message: 'No repository path available' })
+      return
+    }
+
+    setPreviewLoading(true)
+    onStatusChange?.({ type: 'info', message: `Creating preview for PR #${pr.number}...` })
+
+    try {
+      const result = await window.conveyor.preview.autoPreviewPR(pr.number, prDetail.headRefName, repoPath)
+      if (result.success) {
+        const warningMsg = result.warnings?.length ? ` (${result.warnings.join(', ')})` : ''
+        onStatusChange?.({ type: 'success', message: `Opened ${result.url}${warningMsg}` })
+      } else {
+        onStatusChange?.({ type: 'error', message: result.message })
+      }
+    } catch (error) {
+      onStatusChange?.({ type: 'error', message: (error as Error).message })
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  // Load file diff when selected (using parsed format with hunks)
   useEffect(() => {
     if (!selectedFile) {
       setFileDiff(null)
       return
     }
 
+    let cancelled = false
+
     const loadDiff = async () => {
       setLoadingDiff(true)
       try {
-        const diff = await window.electronAPI.getPRFileDiff(pr.number, selectedFile)
-        setFileDiff(diff)
+        const diff = await window.conveyor.pr.getPRFileDiffParsed(pr.number, selectedFile)
+        if (!cancelled) {
+          setFileDiff(diff)
+        }
       } catch (_error) {
-        setFileDiff(null)
+        if (!cancelled) {
+          setFileDiff(null)
+        }
       } finally {
-        setLoadingDiff(false)
+        if (!cancelled) {
+          setLoadingDiff(false)
+        }
       }
     }
 
     loadDiff()
+
+    return () => {
+      cancelled = true
+    }
   }, [pr.number, selectedFile])
+
+  // Scroll diff into view when a file is selected
+  useLayoutEffect(() => {
+    if (selectedFile && diffContainerRef.current) {
+      // Small delay to ensure the DOM has updated
+      requestAnimationFrame(() => {
+        diffContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+    }
+  }, [selectedFile])
 
   // Filter comments by AI/human
   const filteredComments = useMemo(() => {
@@ -219,7 +290,9 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
   if (loading) {
     return (
       <div className="pr-review-panel">
-        <div className="pr-review-loading">Loading PR details...</div>
+        <div className="pr-review-loading">
+          <div className="editor-loading-spinner" />
+        </div>
       </div>
     )
   }
@@ -243,9 +316,29 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
         </div>
         <div className="pr-review-meta">
           <span className="pr-review-branch">
-            <code>{prDetail.headRefName}</code>
+            {onNavigateToBranch ? (
+              <button
+                className="branch-link"
+                onClick={() => onNavigateToBranch(prDetail.headRefName)}
+                title={`View branch: ${prDetail.headRefName}`}
+              >
+                <code>{prDetail.headRefName}</code>
+              </button>
+            ) : (
+              <code>{prDetail.headRefName}</code>
+            )}
             <span className="pr-arrow">→</span>
-            <code>{prDetail.baseRefName}</code>
+            {onNavigateToBranch ? (
+              <button
+                className="branch-link"
+                onClick={() => onNavigateToBranch(prDetail.baseRefName)}
+                title={`View branch: ${prDetail.baseRefName}`}
+              >
+                <code>{prDetail.baseRefName}</code>
+              </button>
+            ) : (
+              <code>{prDetail.baseRefName}</code>
+            )}
           </span>
           <span className="pr-review-author">@{prDetail.author.login}</span>
           <span className="pr-review-time">{formatRelativeTime(prDetail.updatedAt)}</span>
@@ -269,10 +362,24 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
         )}
         <button
           className="btn btn-secondary"
-          onClick={() => window.electronAPI.openPullRequest(pr.url)}
+          onClick={() => window.conveyor.pr.openPullRequest(pr.url)}
         >
           View on GitHub
         </button>
+        {bestProvider && (
+          <button
+            className="btn btn-secondary"
+            onClick={handlePreviewInBrowser}
+            disabled={!bestProvider.available || previewLoading}
+            title={
+              !bestProvider.available
+                ? bestProvider.reason || 'Preview provider unavailable'
+                : `Open preview with ${bestProvider.name}`
+            }
+          >
+            {previewLoading ? 'Opening...' : 'Preview'}
+          </button>
+        )}
         <button
           className="btn btn-primary"
           onClick={handleMergePR}
@@ -325,7 +432,7 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
                   <span className="pr-comment-author">@{prDetail.author.login}</span>
                   <span className="pr-comment-time">{formatRelativeTime(prDetail.createdAt)}</span>
                 </div>
-                <div className="pr-comment-body">{renderTextWithLinks(prDetail.body)}</div>
+                <div className="pr-comment-body">{prDetail.body}</div>
               </div>
             )}
 
@@ -351,7 +458,7 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
                       {isReview && getReviewStateBadge((item as any).state)}
                       <span className="pr-comment-time">{formatRelativeTime(date)}</span>
                     </div>
-                    {item.body && <div className="pr-comment-body">{renderTextWithLinks(item.body)}</div>}
+                    {item.body && <div className="pr-comment-body">{item.body}</div>}
                   </div>
                 )
               })}
@@ -416,14 +523,14 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
 
             {/* File Diff Preview */}
             {selectedFile && (
-              <div className="pr-file-diff">
+              <div className="pr-file-diff" ref={diffContainerRef}>
                 <div className="pr-file-diff-header">
                   <span>{selectedFile}</span>
                   <a
                     href={`${pr.url}/files#diff-${selectedFile.replace(/[^a-zA-Z0-9]/g, '')}`}
                     onClick={(e) => {
                       e.preventDefault()
-                      window.electronAPI.openPullRequest(`${pr.url}/files`)
+                      window.conveyor.pr.openPullRequest(`${pr.url}/files`)
                     }}
                     className="pr-view-on-github"
                   >
@@ -431,13 +538,13 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
                   </a>
                 </div>
                 <div className="pr-file-diff-content">
-                  {loadingDiff ? (
-                    <div className="pr-diff-loading">Loading diff...</div>
-                  ) : fileDiff ? (
-                    <pre className="pr-diff-code">{fileDiff}</pre>
-                  ) : (
-                    <div className="pr-diff-empty">Could not load diff</div>
-                  )}
+                  <DiffViewer
+                    diff={fileDiff}
+                    filePath={selectedFile}
+                    loading={loadingDiff}
+                    emptyMessage="Could not load diff"
+                    className="pr-diff-viewer"
+                  />
                 </div>
 
                 {/* Inline Review Comments */}
@@ -459,7 +566,7 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
                           {comment.line && <span className="pr-comment-line">Line {comment.line}</span>}
                           <span className="pr-comment-time">{formatRelativeTime(comment.createdAt)}</span>
                         </div>
-                        <div className="pr-inline-comment-body">{renderTextWithLinks(comment.body)}</div>
+                        <div className="pr-inline-comment-body">{comment.body}</div>
                       </div>
                     ))}
                   </div>
@@ -487,4 +594,3 @@ export function PRDetailPanel({ pr, formatRelativeTime, onCheckout, onPRMerged, 
     </div>
   )
 }
-
