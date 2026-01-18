@@ -8745,3 +8745,271 @@ body,
   height: 100%;
   pointer-events: none;
 }
+
+/* ========================================
+ * ERD Canvas Panel Styles
+ * Entity Relationship Diagram visualization
+ * ======================================== */
+
+.erd-canvas-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.erd-canvas-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.erd-canvas-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+/* ERD Canvas Header */
+.erd-canvas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.erd-canvas-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.erd-framework-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.erd-framework-laravel {
+  background: rgba(255, 45, 32, 0.15);
+  color: #ff5e57;
+  border: 1px solid rgba(255, 45, 32, 0.3);
+}
+
+.erd-framework-rails {
+  background: rgba(204, 0, 0, 0.15);
+  color: #ff4444;
+  border: 1px solid rgba(204, 0, 0, 0.3);
+}
+
+.erd-entity-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.erd-canvas-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.erd-action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.erd-action-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* tldraw Canvas Wrapper */
+.erd-canvas-wrapper {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+.erd-canvas-wrapper > div {
+  position: absolute !important;
+  inset: 0;
+}
+
+/* Empty/Loading/Error States */
+.erd-empty-state,
+.erd-loading-state,
+.erd-error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.erd-empty-content,
+.erd-loading-content,
+.erd-error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 32px;
+  max-width: 300px;
+}
+
+.erd-empty-icon,
+.erd-error-icon {
+  font-size: 48px;
+  opacity: 0.5;
+}
+
+.erd-empty-content p,
+.erd-loading-content p,
+.erd-error-content p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.erd-empty-hint,
+.erd-error-message {
+  font-size: 12px !important;
+  color: var(--text-tertiary) !important;
+}
+
+.erd-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-primary);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: erd-spin 0.8s linear infinite;
+}
+
+@keyframes erd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.erd-retry-button {
+  margin-top: 8px;
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.erd-retry-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-primary);
+}
+
+/* ========================================
+ * ERD Entity Shape Styles (tldraw custom shape)
+ * ======================================== */
+
+.erd-entity-shape {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary, #1a1d21);
+  border: 1px solid var(--border-primary, #2d3139);
+  border-radius: 6px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.erd-entity-header {
+  background: var(--accent-primary, #3b82f6);
+  color: white;
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 13px;
+  text-align: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.erd-entity-attributes {
+  display: flex;
+  flex-direction: column;
+}
+
+.erd-attribute {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-secondary, #23272e);
+  gap: 8px;
+}
+
+.erd-attribute:last-child {
+  border-bottom: none;
+}
+
+.erd-attribute:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+}
+
+.erd-attribute-empty {
+  justify-content: center;
+  color: var(--text-tertiary, #6b7280);
+  font-style: italic;
+}
+
+.erd-attr-key {
+  width: 24px;
+  text-align: center;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.erd-attr-name {
+  flex: 1;
+  color: var(--text-primary, #e0e4e8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.erd-attr-name.erd-attr-nullable {
+  color: var(--text-secondary, #9ca3af);
+}
+
+.erd-attr-type {
+  color: var(--text-tertiary, #6b7280);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* tldraw Theme Overrides for ERD */
+.erd-canvas-wrapper .tl-theme__light {
+  --color-background: var(--bg-primary);
+}
+
+.erd-canvas-wrapper .tl-theme__dark {
+  --color-background: var(--bg-primary);
+}
