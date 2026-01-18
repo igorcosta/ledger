@@ -31,6 +31,7 @@ import { registerAIHandlers } from '@/lib/conveyor/handlers/ai-handler'
 import { registerMailmapHandlers } from '@/lib/conveyor/handlers/mailmap-handler'
 import { registerAnalyticsHandlers } from '@/lib/conveyor/handlers/analytics-handler'
 import { registerCanvasHandlers } from '@/lib/conveyor/handlers/canvas-handler'
+import { registerPreviewHandlers, cleanupPreviewHandlers } from '@/lib/conveyor/handlers/preview-handler'
 import { markChannelRegistered } from '@/lib/main/shared'
 
 // IPC channels registered in this file (for documentation/debugging)
@@ -150,13 +151,7 @@ import {
   mapVSCodeThemeToCSS,
   // Note: Canvas functions (getCanvases, saveCanvases, etc.) now handled by conveyor canvas handlers
 } from './settings-service'
-import {
-  isHerdInstalled,
-  isLaravelProject,
-  setupWorktreeForPreview,
-  getPreviewWorktreePath,
-  ensurePreviewsDirectory,
-} from './herd-service'
+// Note: Herd service functions are now used via registerPreviewHandlers() in conveyor/handlers/preview-handler.ts
 
 // Check for --repo command line argument (for testing)
 const repoArgIndex = process.argv.findIndex((arg) => arg.startsWith('--repo='))
@@ -200,6 +195,7 @@ app.whenReady().then(() => {
   registerMailmapHandlers()
   registerAnalyticsHandlers()
   registerCanvasHandlers()
+  registerPreviewHandlers()
 
   // Register git IPC handlers
   ipcMain.handle('select-repo', async () => {
@@ -583,136 +579,7 @@ app.whenReady().then(() => {
     return result.filePaths[0]
   })
 
-  // Herd preview handlers
-  ipcMain.handle('check-herd-available', async (_, worktreePath: string) => {
-    try {
-      const herdInstalled = await isHerdInstalled()
-      const isLaravel = isLaravelProject(worktreePath)
-      return { herdInstalled, isLaravel }
-    } catch (_error) {
-      return { herdInstalled: false, isLaravel: false }
-    }
-  })
-
-  ipcMain.handle('open-worktree-in-browser', async (_, worktreePath: string, mainRepoPath: string) => {
-    try {
-      const result = await setupWorktreeForPreview(worktreePath, mainRepoPath)
-      if (result.success && result.url) {
-        await shell.openExternal(result.url)
-      }
-      return result
-    } catch (error) {
-      return { success: false, message: (error as Error).message }
-    }
-  })
-
-  ipcMain.handle(
-    'preview-branch-in-browser',
-    async (_, branchName: string, mainRepoPath: string) => {
-      try {
-        // Ensure previews directory exists
-        await ensurePreviewsDirectory()
-
-        // Sanitize branch name for folder (replace / with -)
-        const safeBranchName = branchName.replace(/\//g, '-')
-        const worktreePath = getPreviewWorktreePath(safeBranchName)
-
-        // Check if worktree already exists at this path
-        const fs = await import('fs')
-        if (!fs.existsSync(worktreePath)) {
-          // Create worktree for this branch
-          const createResult = await createWorktree({
-            branchName,
-            isNewBranch: false,
-            folderPath: worktreePath,
-          })
-
-          if (!createResult.success) {
-            return createResult
-          }
-        }
-
-        // Setup for preview and open
-        const result = await setupWorktreeForPreview(worktreePath, mainRepoPath)
-        if (result.success && result.url) {
-          await shell.openExternal(result.url)
-        }
-        return { ...result, worktreePath }
-      } catch (error) {
-        return { success: false, message: (error as Error).message }
-      }
-    }
-  )
-
-  ipcMain.handle(
-    'preview-pr-in-browser',
-    async (_, prNumber: number, prBranchName: string, mainRepoPath: string) => {
-      try {
-        // Ensure previews directory exists
-        await ensurePreviewsDirectory()
-
-        const worktreePath = getPreviewWorktreePath(`pr-${prNumber}`)
-
-        // Check if worktree already exists at this path
-        const fs = await import('fs')
-        if (!fs.existsSync(worktreePath)) {
-          // Create worktree for the PR branch
-          const createResult = await createWorktree({
-            branchName: prBranchName,
-            isNewBranch: false,
-            folderPath: worktreePath,
-          })
-
-          if (!createResult.success) {
-            return createResult
-          }
-        }
-
-        // Setup for preview and open
-        const result = await setupWorktreeForPreview(worktreePath, mainRepoPath)
-        if (result.success && result.url) {
-          await shell.openExternal(result.url)
-        }
-        return { ...result, worktreePath }
-      } catch (error) {
-        return { success: false, message: (error as Error).message }
-      }
-    }
-  )
-
-  ipcMain.handle('preview-commit-in-browser', async (_, commitHash: string, mainRepoPath: string) => {
-    try {
-      // Ensure previews directory exists
-      await ensurePreviewsDirectory()
-
-      const shortHash = commitHash.substring(0, 7)
-      const worktreePath = getPreviewWorktreePath(`commit-${shortHash}`)
-
-      // Check if worktree already exists at this path
-      const fs = await import('fs')
-      if (!fs.existsSync(worktreePath)) {
-        // Create detached worktree at this commit
-        const createResult = await createWorktree({
-          commitHash,
-          isNewBranch: false,
-          folderPath: worktreePath,
-        })
-
-        if (!createResult.success) {
-          return createResult
-        }
-      }
-
-      // Setup for preview and open
-      const result = await setupWorktreeForPreview(worktreePath, mainRepoPath)
-      if (result.success && result.url) {
-        await shell.openExternal(result.url)
-      }
-      return { ...result, worktreePath }
-    } catch (error) {
-      return { success: false, message: (error as Error).message }
-    }
-  })
+  // Preview handlers are now registered via registerPreviewHandlers() in conveyor/handlers/preview-handler.ts
 
   ipcMain.handle('get-stashes', async () => {
     try {
@@ -999,8 +866,9 @@ app.on('window-all-closed', () => {
   }
 })
 
-// Clean up database on quit
+// Clean up database and preview servers on quit
 app.on('will-quit', () => {
+  cleanupPreviewHandlers()
   closeAllCustomDatabases()
   closeDatabase()
 })

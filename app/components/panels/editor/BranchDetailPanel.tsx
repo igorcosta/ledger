@@ -107,16 +107,16 @@ export function BranchDetailPanel({
     }
   }, [branch.name, isMainOrMaster, diffType])
 
-  // Check Herd availability when repoPath changes
+  // Check preview availability when repoPath changes
   useEffect(() => {
     if (!repoPath) {
       setHerdInstalled(false)
       setIsLaravel(false)
       return
     }
-    const checkHerd = async () => {
+    const checkPreview = async () => {
       try {
-        const result = await window.electronAPI.checkHerdAvailable(repoPath)
+        const result = await window.conveyor.preview.checkAvailable(repoPath)
         setHerdInstalled(result.herdInstalled)
         setIsLaravel(result.isLaravel)
       } catch {
@@ -124,7 +124,7 @@ export function BranchDetailPanel({
         setIsLaravel(false)
       }
     }
-    checkHerd()
+    checkPreview()
   }, [repoPath])
 
   const handleStartPRCreation = () => {
@@ -220,7 +220,7 @@ export function BranchDetailPanel({
     onStatusChange?.({ type: 'info', message: `Creating preview for ${branch.name}...` })
 
     try {
-      const result = await window.electronAPI.previewBranchInBrowser(branch.name, repoPath)
+      const result = await window.conveyor.preview.autoPreviewBranch(branch.name, repoPath)
       if (result.success) {
         const warningMsg = result.warnings?.length ? ` (${result.warnings.join(', ')})` : ''
         onStatusChange?.({ type: 'success', message: `Opened ${result.url}${warningMsg}` })

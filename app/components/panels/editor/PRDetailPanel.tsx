@@ -90,9 +90,9 @@ export function PRReviewPanel({ pr, repoPath, formatRelativeTime, onCheckout, on
       setIsLaravel(false)
       return
     }
-    const checkHerd = async () => {
+    const checkPreview = async () => {
       try {
-        const result = await window.electronAPI.checkHerdAvailable(repoPath)
+        const result = await window.conveyor.preview.checkAvailable(repoPath)
         setHerdInstalled(result.herdInstalled)
         setIsLaravel(result.isLaravel)
       } catch {
@@ -100,7 +100,7 @@ export function PRReviewPanel({ pr, repoPath, formatRelativeTime, onCheckout, on
         setIsLaravel(false)
       }
     }
-    checkHerd()
+    checkPreview()
   }, [repoPath])
 
   // Submit a comment
@@ -160,7 +160,7 @@ export function PRReviewPanel({ pr, repoPath, formatRelativeTime, onCheckout, on
     }
   }
 
-  // Preview PR in browser via Herd
+  // Preview PR in browser
   const handlePreviewInBrowser = async () => {
     if (!repoPath || !prDetail) {
       onStatusChange?.({ type: 'error', message: 'No repository path available' })
@@ -171,7 +171,7 @@ export function PRReviewPanel({ pr, repoPath, formatRelativeTime, onCheckout, on
     onStatusChange?.({ type: 'info', message: `Creating preview for PR #${pr.number}...` })
 
     try {
-      const result = await window.electronAPI.previewPRInBrowser(pr.number, prDetail.headRefName, repoPath)
+      const result = await window.conveyor.preview.autoPreviewPR(pr.number, prDetail.headRefName, repoPath)
       if (result.success) {
         const warningMsg = result.warnings?.length ? ` (${result.warnings.join(', ')})` : ''
         onStatusChange?.({ type: 'success', message: `Opened ${result.url}${warningMsg}` })

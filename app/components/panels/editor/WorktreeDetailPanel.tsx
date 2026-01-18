@@ -114,11 +114,11 @@ export function WorktreeDetailPanel({
     }
   }, [fileContextMenu])
 
-  // Check Herd availability when worktree changes
+  // Check preview availability when worktree changes
   useEffect(() => {
-    const checkHerd = async () => {
+    const checkPreview = async () => {
       try {
-        const result = await window.electronAPI.checkHerdAvailable(worktree.path)
+        const result = await window.conveyor.preview.checkAvailable(worktree.path)
         setHerdInstalled(result.herdInstalled)
         setIsLaravel(result.isLaravel)
       } catch {
@@ -126,7 +126,7 @@ export function WorktreeDetailPanel({
         setIsLaravel(false)
       }
     }
-    checkHerd()
+    checkPreview()
   }, [worktree.path])
 
   const loadWorkingStatus = async () => {
@@ -330,7 +330,7 @@ export function WorktreeDetailPanel({
     onStatusChange?.({ type: 'info', message: 'Setting up preview...' })
 
     try {
-      const result = await window.electronAPI.openWorktreeInBrowser(worktree.path, repoPath)
+      const result = await window.conveyor.preview.autoPreviewWorktree(worktree.path, repoPath)
       if (result.success) {
         const warningMsg = result.warnings?.length ? ` (${result.warnings.join(', ')})` : ''
         onStatusChange?.({ type: 'success', message: `Opened ${result.url}${warningMsg}` })
