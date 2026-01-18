@@ -8818,7 +8818,8 @@ body,
 
 .erd-canvas-actions {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
 }
 
 .erd-action-button {
@@ -9110,4 +9111,339 @@ body,
 
 .erd-canvas-wrapper .tl-container.tl-theme__dark .tlui-kbd {
   color: var(--text-muted) !important;
+}
+
+/* ========================================
+ * ERD RENDERER TOGGLE
+ * ======================================== */
+
+.erd-renderer-toggle {
+  display: flex;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.erd-renderer-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.erd-renderer-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.erd-renderer-btn.active {
+  background: var(--bg-primary);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.erd-renderer-icon {
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.erd-renderer-label {
+  font-weight: 500;
+}
+
+/* ========================================
+ * ERD RENDERERS - COMMON
+ * ======================================== */
+
+.erd-renderer {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+}
+
+.erd-renderer.erd-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+/* ========================================
+ * TLDRAW RENDERER
+ * ======================================== */
+
+.erd-tldraw-renderer {
+  /* tldraw fills the container naturally */
+}
+
+.erd-tldraw-renderer > div {
+  position: absolute !important;
+  inset: 0;
+}
+
+/* ========================================
+ * REACT FLOW RENDERER
+ * ======================================== */
+
+.erd-reactflow-renderer {
+  background: var(--bg-primary);
+}
+
+/* React Flow theme overrides */
+.erd-reactflow-renderer .react-flow {
+  background: var(--bg-primary);
+}
+
+.erd-reactflow-renderer .react-flow__background {
+  background: var(--bg-primary);
+}
+
+.erd-reactflow-renderer .react-flow__background-pattern {
+  fill: var(--border-secondary);
+}
+
+/* React Flow controls */
+.erd-reactflow-renderer .react-flow__controls {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.erd-reactflow-renderer .react-flow__controls-button {
+  background: var(--bg-secondary);
+  border-color: var(--border-primary);
+  fill: var(--text-secondary);
+}
+
+.erd-reactflow-renderer .react-flow__controls-button:hover {
+  background: var(--bg-hover);
+}
+
+/* React Flow minimap */
+.erd-reactflow-renderer .react-flow__minimap {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+}
+
+/* Entity Node Styles (React Flow) */
+.erd-entity-node {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  font-size: 12px;
+  min-width: 180px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.erd-entity-node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle), 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.erd-entity-node .erd-entity-header {
+  padding: 8px 12px;
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+  text-align: center;
+}
+
+.erd-entity-node .erd-entity-attributes {
+  padding: 4px 0;
+}
+
+.erd-entity-node .erd-attribute {
+  display: flex;
+  padding: 4px 12px;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.erd-entity-node .erd-attribute:hover {
+  background: var(--bg-hover);
+}
+
+.erd-entity-node .erd-attr-key {
+  width: 24px;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.erd-entity-node .erd-attr-name {
+  flex: 1;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.erd-entity-node .erd-attr-name.erd-attr-nullable {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.erd-entity-node .erd-attr-type {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.erd-entity-node .erd-attribute-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* React Flow handles */
+.erd-handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: var(--border-primary) !important;
+  border: 2px solid var(--bg-primary) !important;
+}
+
+.erd-handle:hover {
+  background: var(--accent) !important;
+}
+
+/* Relationship Edge Styles (React Flow) */
+.erd-relationship-edge {
+  stroke: var(--border-primary);
+}
+
+.erd-relationship-edge.selected {
+  stroke: var(--accent);
+}
+
+.erd-edge-label {
+  background: var(--bg-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+}
+
+.erd-edge-cardinality {
+  background: var(--bg-primary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ========================================
+ * JSON RENDERER
+ * ======================================== */
+
+.erd-json-renderer {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.erd-json-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.erd-json-stats {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.erd-json-copy-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.erd-json-copy-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.erd-json-content {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+}
+
+/* JSON view container overrides */
+.erd-json-container {
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+.erd-json-light {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.erd-json-dark {
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* JSON view nested styles */
+.erd-json-container [class*="basicChildStyle"] {
+  padding-left: 16px !important;
+}
+
+.erd-json-container [class*="label"] {
+  color: var(--accent) !important;
+}
+
+.erd-json-container [class*="valueString"] {
+  color: #098658 !important;
+}
+
+.erd-json-container [class*="valueNumber"] {
+  color: #0451a5 !important;
+}
+
+.erd-json-container [class*="valueBoolean"] {
+  color: #0451a5 !important;
+}
+
+.erd-json-container [class*="valueNull"] {
+  color: var(--text-muted) !important;
+}
+
+/* Dark mode JSON colors */
+@media (prefers-color-scheme: dark) {
+  .erd-json-container [class*="valueString"] {
+    color: #4ec9b0 !important;
+  }
+
+  .erd-json-container [class*="valueNumber"] {
+    color: #b5cea8 !important;
+  }
+
+  .erd-json-container [class*="valueBoolean"] {
+    color: #569cd6 !important;
+  }
 }

@@ -1,20 +1,36 @@
 /**
  * ERD Canvas Panel
  *
- * Visualizes Entity Relationship Diagrams on an infinite canvas using tldraw.
+ * Visualizes Entity Relationship Diagrams with multiple renderer options:
+ * - Canvas (tldraw): Freeform infinite canvas
+ * - Graph (React Flow): Structured node graph
+ * - JSON: Raw data inspector
+ *
  * Supports Laravel and Rails schema parsing.
  */
 
 import { useCallback, useEffect, useState, useRef } from 'react'
-import { Tldraw, Editor } from 'tldraw'
-import 'tldraw/tldraw.css'
-import { EntityShapeUtil } from './EntityShapeUtil'
-import { renderERDSchema, clearERDShapes, filterSchemaByRelationshipCount } from './erdUtils'
+import { TldrawRenderer, ReactFlowRenderer, JsonRenderer } from './renderers'
+import { filterSchemaByRelationshipCount } from './layout/erd-layout'
 import type { ERDSchema, ERDFramework } from '@/lib/services/erd/erd-types'
 
-// Custom shape utilities
-const customShapeUtils = [EntityShapeUtil]
 const INITIAL_RELATIONSHIP_FILTER_MIN = 3
+
+// Renderer types
+type RendererType = 'tldraw' | 'reactflow' | 'json'
+
+interface RendererOption {
+  id: RendererType
+  label: string
+  icon: string
+  title: string
+}
+
+const RENDERER_OPTIONS: RendererOption[] = [
+  { id: 'tldraw', label: 'Canvas', icon: '◫', title: 'Infinite canvas (tldraw)' },
+  { id: 'reactflow', label: 'Graph', icon: '◉', title: 'Node graph (React Flow)' },
+  { id: 'json', label: 'JSON', icon: '{ }', title: 'Raw data inspector' },
+]
 
 interface ERDCanvasPanelProps {
   repoPath: string | null
@@ -23,13 +39,12 @@ interface ERDCanvasPanelProps {
 type LoadingState = 'idle' | 'loading' | 'success' | 'error' | 'no-schema'
 
 export function ERDCanvasPanel({ repoPath }: ERDCanvasPanelProps) {
-  const editorRef = useRef<Editor | null>(null)
   const initialFilterApplied = useRef(false)
   const [schema, setSchema] = useState<ERDSchema | null>(null)
   const [framework, setFramework] = useState<ERDFramework | null>(null)
   const [loadingState, setLoadingState] = useState<LoadingState>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [isEditorReady, setIsEditorReady] = useState(false)
+  const [renderer, setRenderer] = useState<RendererType>('tldraw')
 
   // Reset initial filter when repo changes
   useEffect(() => {
@@ -91,27 +106,8 @@ export function ERDCanvasPanel({ repoPath }: ERDCanvasPanelProps) {
     loadSchema()
   }, [loadSchema])
 
-  // Render schema when editor is ready and schema is loaded
-  useEffect(() => {
-    if (editorRef.current && isEditorReady && schema) {
-      renderERDSchema(editorRef.current, schema)
-    }
-  }, [schema, isEditorReady])
-
-  // Handle editor mount
-  const handleMount = useCallback(
-    (editor: Editor) => {
-      editorRef.current = editor
-      setIsEditorReady(true)
-    },
-    []
-  )
-
   // Refresh handler
   const handleRefresh = useCallback(() => {
-    if (editorRef.current) {
-      clearERDShapes(editorRef.current)
-    }
     // Reset filter flag so the improved filter runs again
     initialFilterApplied.current = false
     loadSchema()
@@ -123,6 +119,20 @@ export function ERDCanvasPanel({ repoPath }: ERDCanvasPanelProps) {
       {framework === 'laravel' ? '🐘 Laravel' : '💎 Rails'}
     </span>
   )
+
+  // Render the selected renderer
+  const renderContent = () => {
+    switch (renderer) {
+      case 'tldraw':
+        return <TldrawRenderer schema={schema} />
+      case 'reactflow':
+        return <ReactFlowRenderer schema={schema} />
+      case 'json':
+        return <JsonRenderer schema={schema} />
+      default:
+        return <TldrawRenderer schema={schema} />
+    }
+  }
 
   // Render loading/error states
   if (loadingState === 'idle' || !repoPath) {
@@ -168,9 +178,7 @@ export function ERDCanvasPanel({ repoPath }: ERDCanvasPanelProps) {
         <div className="erd-empty-content">
           <span className="erd-empty-icon">🔍</span>
           <p>No database schema found</p>
-          <p className="erd-empty-hint">
-            Supports Laravel migrations, Rails schema.rb, and Mermaid ERD files
-          </p>
+          <p className="erd-empty-hint">Supports Laravel migrations, Rails schema.rb, and Mermaid ERD files</p>
           <button className="erd-retry-button" onClick={handleRefresh}>
             Scan Again
           </button>
@@ -179,7 +187,7 @@ export function ERDCanvasPanel({ repoPath }: ERDCanvasPanelProps) {
     )
   }
 
-  // Success state - render tldraw canvas
+  // Success state - render selected visualization
   return (
     <div className="erd-canvas-container">
       <div className="erd-canvas-header">
@@ -190,25 +198,27 @@ export function ERDCanvasPanel({ repoPath }: ERDCanvasPanelProps) {
           </span>
         </div>
         <div className="erd-canvas-actions">
+          {/* Renderer toggle */}
+          <div className="erd-renderer-toggle">
+            {RENDERER_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                className={`erd-renderer-btn ${renderer === option.id ? 'active' : ''}`}
+                onClick={() => setRenderer(option.id)}
+                title={option.title}
+              >
+                <span className="erd-renderer-icon">{option.icon}</span>
+                <span className="erd-renderer-label">{option.label}</span>
+              </button>
+            ))}
+          </div>
+          {/* Refresh button */}
           <button className="erd-action-button" onClick={handleRefresh} title="Refresh schema">
             ↻
           </button>
         </div>
       </div>
-      <div className="erd-canvas-wrapper">
-        <Tldraw
-          shapeUtils={customShapeUtils}
-          onMount={handleMount}
-          inferDarkMode
-          hideUi={false}
-          components={{
-            // Hide some default UI elements for cleaner ERD view
-            PageMenu: null,
-            DebugMenu: null,
-            DebugPanel: null,
-          }}
-        />
-      </div>
+      <div className="erd-canvas-wrapper">{renderContent()}</div>
     </div>
   )
 }
