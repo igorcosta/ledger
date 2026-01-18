@@ -5,6 +5,7 @@
  */
 
 import type { Editor, TLShapeId } from '@tldraw/editor'
+import { toRichText } from '@tldraw/tlschema'
 import type { ERDSchema, ERDEntity, ERDRelationship, ERDCardinality } from '@/lib/services/erd/erd-types'
 import type { ERDEntityShape } from './EntityShapeUtil'
 import dagre from 'dagre'
@@ -129,10 +130,12 @@ export function createRelationshipArrows(
   const arrows: Array<{
     id: TLShapeId
     type: 'arrow'
+    x: number
+    y: number
     props: {
       start: { x: number; y: number }
       end: { x: number; y: number }
-      text: string
+      richText: ReturnType<typeof toRichText>
       labelPosition: number
     }
   }> = []
@@ -168,13 +171,24 @@ export function createRelationshipArrows(
     // Create label with cardinality notation
     const label = formatRelationshipLabel(rel)
 
+    if (
+      !Number.isFinite(fromPoint.x) ||
+      !Number.isFinite(fromPoint.y) ||
+      !Number.isFinite(toPoint.x) ||
+      !Number.isFinite(toPoint.y)
+    ) {
+      continue
+    }
+
     arrows.push({
       id,
       type: 'arrow',
+      x: fromPoint.x,
+      y: fromPoint.y,
       props: {
-        start: fromPoint,
-        end: toPoint,
-        text: label,
+        start: { x: 0, y: 0 },
+        end: { x: toPoint.x - fromPoint.x, y: toPoint.y - fromPoint.y },
+        richText: toRichText(label),
         labelPosition: 0.5,
       },
     })

@@ -531,7 +531,18 @@ export function CanvasRenderer({
           )
       }
     },
-    [data.commits, selection.selectedCommit, handlers, activeCanvas, setColumnPanel, columnWidths, handleStartColumnResize, handleResetColumnWidth, resizingColumn]
+    [
+      data.commits,
+      data.repoPath,
+      selection.selectedCommit,
+      handlers,
+      activeCanvas,
+      setColumnPanel,
+      columnWidths,
+      handleStartColumnResize,
+      handleResetColumnWidth,
+      resizingColumn,
+    ]
   )
 
   // Render an editor panel based on column config

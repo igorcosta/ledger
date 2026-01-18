@@ -27,6 +27,7 @@ export function ERDCanvasPanel({ repoPath }: ERDCanvasPanelProps) {
   const [framework, setFramework] = useState<ERDFramework | null>(null)
   const [loadingState, setLoadingState] = useState<LoadingState>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isEditorReady, setIsEditorReady] = useState(false)
 
   // Load ERD schema when repo path changes
   const loadSchema = useCallback(async () => {
@@ -76,22 +77,18 @@ export function ERDCanvasPanel({ repoPath }: ERDCanvasPanelProps) {
 
   // Render schema when editor is ready and schema is loaded
   useEffect(() => {
-    if (editorRef.current && schema) {
+    if (editorRef.current && isEditorReady && schema) {
       renderERDSchema(editorRef.current, schema)
     }
-  }, [schema])
+  }, [schema, isEditorReady])
 
   // Handle editor mount
   const handleMount = useCallback(
     (editor: Editor) => {
       editorRef.current = editor
-
-      // If schema is already loaded, render it
-      if (schema) {
-        renderERDSchema(editor, schema)
-      }
+      setIsEditorReady(true)
     },
-    [schema]
+    []
   )
 
   // Refresh handler

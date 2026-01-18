@@ -368,7 +368,7 @@ function parseRailsSchemaFile(content: string): { entities: ERDEntity[]; relatio
   const relationships: ERDRelationship[] = []
 
   // Match create_table blocks
-  const tableRegex = /create_table\s+"(\w+)"[^d]*?do\s+\|t\|([\s\S]*?)^\s*end/gm
+  const tableRegex = /create_table\s+"(\w+)"(?:\s*,[^\n]*)?\s+do\s+\|t\|([\s\S]*?)^\s*end/gm
 
   let match
   while ((match = tableRegex.exec(content)) !== null) {
