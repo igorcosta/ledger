@@ -4,27 +4,32 @@ Work in progress notes, known issues, and planned improvements for the Entity Re
 
 ## Current Status
 
-**Phase**: Initial implementation complete (Phases 1-5 from plan)
+**Phase**: Multi-renderer architecture implemented
 
 ### Implemented
 
 - [x] tldraw canvas integration with custom shape
+- [x] React Flow graph renderer (alternative to tldraw)
+- [x] JSON tree viewer renderer (for debugging/inspection)
+- [x] Renderer toggle UI (Canvas/Graph/JSON)
 - [x] Laravel migration parser (`Schema::create`, column types)
 - [x] Laravel model parser (hasMany, hasOne, belongsTo, belongsToMany)
 - [x] Rails schema.rb parser (create_table, column types)
 - [x] Rails model parser (has_many, has_one, belongs_to, habtm)
 - [x] Mermaid ERD syntax parser
 - [x] Framework auto-detection
-- [x] Dagre-based auto-layout
-- [x] Relationship arrows (using tldraw built-in arrows)
+- [x] Dagre-based auto-layout (shared across renderers)
+- [x] Relationship arrows (tldraw arrows, React Flow edges)
 - [x] Smart filtering (3+ relationship threshold)
 - [x] IPC handlers with Zod validation
 - [x] Loading/error/empty state UI
 - [x] CSS theming (light/dark mode)
 - [x] CSP updated for tldraw CDN assets
+- [x] Fix tldraw canvas drag interference (column draggable moved to handle only)
 
 ### Not Yet Implemented
 
+- [ ] React Flow edges not rendering (debugging in progress)
 - [ ] Custom RelationshipShapeUtil with crow's foot notation
 - [ ] Entity position persistence (save/load layout)
 - [ ] Export to PNG/SVG/Mermaid
@@ -38,6 +43,13 @@ Work in progress notes, known issues, and planned improvements for the Entity Re
 ---
 
 ## Known Issues
+
+### React Flow Renderer
+
+1. **Edges Not Rendering**: Relationship lines don't appear in Graph view
+   - Debug logging added: check console for `[ReactFlowRenderer] Updating with X nodes and Y edges`
+   - Handles have explicit IDs, edges use `smoothstep` type
+   - CSS explicitly styles `.react-flow__edge-path` with `!important`
 
 ### Parser Edge Cases
 
@@ -64,14 +76,24 @@ Work in progress notes, known issues, and planned improvements for the Entity Re
 
 5. **Laravel Schema Facades**: Only `Schema::create` parsed, not `Schema::table` modifications
 
+### Canvas Interaction (macOS)
+
+1. ~~**Blue Selection/Drag in tldraw**~~: Fixed by moving `draggable` attribute from column to drag handle only
+   - **Root cause**: Column had `draggable={true}` which captured pointer events before tldraw
+   - **Fix**: Only the drag handle (⋮⋮) is now draggable, content area works normally
+2. **Pen release bug (3-finger drag)**: Partially mitigated by handling `pointercancel` events
+   - **Root cause**: macOS Tahoe (26) has a system-level bug where 3-finger drag doesn't properly send "drag ended" signals
+   - **Workaround**: Use click+drag instead of 3-finger drag, or press Escape to cancel stuck drawing
+   - **Reference**: https://discussions.apple.com/thread/256144289
+
 ### Layout Issues
 
 1. **NaN Coordinates**: Dagre can return NaN for disconnected nodes
-   - **Mitigated**: Grid fallback layout in `erdUtils.ts` lines 129-132
+   - **Mitigated**: Grid fallback layout in `erd-layout.ts`
    - **Symptom**: Orphan entities appear in grid pattern at top-left
 
-2. **Overlapping Labels**: Relationship labels can overlap on dense diagrams
-   - **Current**: Labels disabled (empty string returned from `formatRelationshipLabel`)
+2. **Orphan Arrows (tldraw)**: Relationships referencing filtered-out entities
+   - **Mitigated**: Added validation to skip relationships with missing entities
 
 3. **Initial Zoom**: Large schemas may not fit viewport on first render
    - **Mitigated**: `zoomToERDShapes` with maxZoom 0.8, inset 160
@@ -91,23 +113,38 @@ Work in progress notes, known issues, and planned improvements for the Entity Re
 
 ## Architecture Decisions
 
-### Why tldraw over alternatives?
+### Why Multiple Renderers?
+
+The multi-renderer architecture separates domain data (ERDSchema) from visual engines:
+
+| Renderer | Engine | Best For |
+|----------|--------|----------|
+| **Canvas** | tldraw | Freeform exploration, annotations, screenshots |
+| **Graph** | React Flow | Structured editing, clean exports, performance |
+| **JSON** | react-json-view-lite | Debugging, data inspection, copy/paste |
+
+This pattern enables:
+- Adding more visualization engines without changing parsers
+- Reusing the same data for different visualizations
+- Testing data independently from rendering
+
+### Why tldraw?
 
 | Option | Pros | Cons |
 |--------|------|------|
 | **tldraw** | Full-featured, MIT, infinite canvas | 500KB+ bundle |
-| **react-flow** | Lighter, node-based | Less drawing flexibility |
+| **React Flow** | Lighter, node-based, better edges | Less drawing flexibility |
 | **Fabric.js** | Low-level control | More manual work |
 | **Custom Canvas** | Full control | Significant dev time |
 
-**Decision**: tldraw's features (pan/zoom/select/undo) outweigh bundle size concerns.
+**Decision**: Offer both tldraw (freeform) and React Flow (structured) via toggle.
 
 ### Why Dagre for layout?
 
 - Produces readable hierarchical layouts
 - Handles directed graphs well (FK relationships are directional)
 - Stable/deterministic output
-- Alternative: d3-force for organic layouts (not implemented)
+- Shared across all renderers via `erd-layout.ts`
 
 ### Why filter by relationship count?
 
@@ -126,19 +163,28 @@ This ensures all displayed entities actually connect to other displayed entities
 
 ```
 app/components/panels/viz/erd/
-├── index.ts              # Module exports
-├── ERDCanvasPanel.tsx    # Main panel component
-├── EntityShapeUtil.tsx   # tldraw custom shape
-└── erdUtils.ts           # Layout + rendering helpers
+├── index.ts                    # Module exports
+├── ERDCanvasPanel.tsx          # Main panel with renderer selector
+├── EntityShapeUtil.tsx         # tldraw custom shape
+├── erdUtils.ts                 # tldraw-specific utilities
+├── layout/
+│   └── erd-layout.ts           # Shared Dagre layout (renderer-agnostic)
+└── renderers/
+    ├── index.ts                # Renderer exports
+    ├── TldrawRenderer.tsx      # tldraw infinite canvas
+    ├── ReactFlowRenderer.tsx   # React Flow node graph
+    ├── EntityNode.tsx          # React Flow custom node
+    ├── RelationshipEdge.tsx    # React Flow custom edge (unused)
+    └── JsonRenderer.tsx        # JSON tree viewer
 
 lib/services/erd/
-├── index.ts              # Service exports
-├── erd-types.ts          # Type definitions
-└── erd-parser-service.ts # Schema parsers
+├── index.ts                    # Service exports
+├── erd-types.ts                # Type definitions
+└── erd-parser-service.ts       # Schema parsers
 
 lib/conveyor/
-├── schemas/erd-schema.ts # Zod schemas
-└── handlers/erd-handler.ts # IPC handlers
+├── schemas/erd-schema.ts       # Zod schemas
+└── handlers/erd-handler.ts     # IPC handlers
 ```
 
 ---
@@ -155,6 +201,8 @@ lib/conveyor/
 - [ ] Schema with cycles (A → B → C → A)
 - [ ] Dark mode / light mode toggle
 - [ ] Window resize during render
+- [ ] Switch between Canvas/Graph/JSON renderers
+- [ ] Check console for edge count in Graph view
 
 ### Test Repos
 
@@ -177,12 +225,12 @@ echo 'erDiagram
 
 ## Performance Considerations
 
-- **Bundle Impact**: tldraw adds ~500KB to renderer bundle
+- **Bundle Impact**: tldraw (~500KB) + React Flow (~150KB) + react-json-view-lite (~3KB)
   - Consider lazy-loading ERD panel on demand
   
 - **Large Schemas**: 100+ entities may slow initial render
   - Dagre layout is O(V+E), acceptable
-  - tldraw handles rendering efficiently
+  - Both tldraw and React Flow handle rendering efficiently
   - Filter threshold (3+) helps reduce default view
 
 - **Memory**: Each entity shape holds ERDEntity data
@@ -192,7 +240,14 @@ echo 'erDiagram
 
 ## Future Improvements
 
-### Phase 6 (UI Polish) - Planned
+### Short Term (Bug Fixes)
+
+1. **Fix React Flow Edges**: Debug why relationship lines don't render
+   - Check if edges array is populated (console logs added)
+   - Verify handle IDs match source/target
+   - Test with simpler edge configuration
+
+### Medium Term (UI Polish)
 
 1. **Crow's Foot Notation**: Custom RelationshipShapeUtil with proper cardinality symbols
    - `||` exactly one
@@ -213,15 +268,17 @@ echo 'erDiagram
    - PNG screenshot via tldraw's export
    - SVG for vector editing
    - Mermaid syntax generation
+   - JSON copy (already available in JSON renderer)
 
 5. **Search/Filter**: 
    - Search by table/column name
    - Filter by relationship type
    - Slider for relationship threshold
 
-### Beyond
+### Long Term (New Features)
 
 - Diff visualization (show schema changes between commits)
 - Live reload on migration file changes
 - Support for other ORMs (Prisma, TypeORM, Sequelize)
 - SQL file parsing (CREATE TABLE statements)
+- Additional renderers (D3 force graph, Mermaid export)

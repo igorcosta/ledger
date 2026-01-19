@@ -21,7 +21,29 @@ interface TldrawRendererProps {
 
 export function TldrawRenderer({ schema }: TldrawRendererProps) {
   const editorRef = useRef<Editor | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const [isEditorReady, setIsEditorReady] = useState(false)
+
+  // Handle pointercancel - macOS Tahoe (26) can trigger this with 3-finger drag
+  // causing the pen to get "stuck" because pointerup never fires
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handlePointerCancel = (_e: PointerEvent) => {
+      // Force tldraw to reset its pointer state by completing the current tool action
+      const editor = editorRef.current
+      if (editor) {
+        editor.cancel()
+      }
+    }
+
+    container.addEventListener('pointercancel', handlePointerCancel, { capture: true })
+
+    return () => {
+      container.removeEventListener('pointercancel', handlePointerCancel, { capture: true })
+    }
+  }, [])
 
   // Render schema when editor is ready and schema changes
   useEffect(() => {
@@ -46,7 +68,10 @@ export function TldrawRenderer({ schema }: TldrawRendererProps) {
   }, [])
 
   return (
-    <div className="erd-renderer erd-tldraw-renderer">
+    <div
+      ref={containerRef}
+      className="erd-renderer erd-tldraw-renderer"
+    >
       <Tldraw
         shapeUtils={customShapeUtils}
         onMount={handleMount}

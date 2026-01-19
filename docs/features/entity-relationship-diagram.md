@@ -2,7 +2,7 @@
 
 ## Overview
 
-The ERD panel provides an interactive, infinite canvas visualization of database schemas. It automatically parses Laravel migrations, Rails schema.rb files, and Mermaid ERD syntax to render explorable entity-relationship diagrams.
+The ERD panel provides interactive visualization of database schemas with multiple rendering options. It automatically parses Laravel migrations, Rails schema.rb files, and Mermaid ERD syntax to render explorable entity-relationship diagrams.
 
 ## Accessing the ERD Panel
 
@@ -20,25 +20,57 @@ The panel will automatically detect your framework and parse the schema.
 | **Rails** | `Rakefile` + `config/application.rb` | `db/schema.rb`, `app/models/*.rb` |
 | **Generic** | Fallback | `.mmd`, `.mermaid`, `.erd.md` files with Mermaid ERD syntax |
 
-## Interface
+| Renderer | Icon | Description |
+|----------|------|-------------|
+| **Canvas** | ◫ | tldraw infinite canvas - freeform exploration with pan/zoom/draw |
+| **Graph** | ◉ | React Flow node graph - structured editing with minimap |
+| **JSON** | { } | Raw data inspector - expandable tree view for debugging |
 
-### Canvas Controls
+### Canvas (tldraw)
 
-The ERD uses [tldraw](https://tldraw.dev/), providing:
+Best for: Freeform exploration, adding annotations, taking screenshots
 
 - **Pan**: Click and drag on empty canvas
 - **Zoom**: Scroll wheel or pinch gesture
 - **Select**: Click on entities
 - **Move**: Drag entities to reposition
 - **Multi-select**: Shift+click or drag selection box
+- **Draw**: Full tldraw toolbar for annotations
 
-### Header Bar
+### Graph (React Flow)
+
+Best for: Structured viewing, clean exports, large schemas
+
+- **Pan**: Click and drag on background
+- **Zoom**: Scroll wheel or pinch gesture
+- **Move**: Drag entities to reposition
+- **MiniMap**: Navigate large schemas via corner preview
+- **Controls**: Zoom buttons in bottom-left
+
+### JSON (Data Inspector)
+
+Best for: Debugging, inspecting parsed data, copying schema
+
+- **Expand/Collapse**: Click arrows to navigate tree
+- **Copy**: Button to copy full JSON to clipboard
+- **Entity Names**: Collapsed nodes show entity/relationship names
+
+## Supported Frameworks
+
+| Framework | Detection | Schema Sources |
+|-----------|-----------|----------------|
+| **Laravel** | `artisan` file present | `database/migrations/*.php`, `app/Models/*.php` |
+| **Rails** | `Rakefile` + `config/application.rb` | `db/schema.rb`, `app/models/*.rb` |
+| **Generic** | Fallback | `.mmd`, `.mermaid`, `.erd.md` files with Mermaid ERD syntax |
+
+## Header Bar
 
 - **Framework Badge**: Shows detected framework (🐘 Laravel / 💎 Rails)
 - **Entity Count**: Number of tables and relationships displayed
+- **Renderer Toggle**: Switch between Canvas / Graph / JSON views
 - **Refresh** (↻): Re-parse schema from source files
 
-### Entity Display
+## Entity Display
 
 Each table/entity displays:
 
@@ -51,13 +83,13 @@ Each table/entity displays:
 | **⚡** | Indexed column |
 | *Italic name* | Nullable column |
 
-### Relationships
+## Relationships
 
-Arrows connect related entities with cardinality:
+Arrows/edges connect related entities:
 
-- **One-to-One**: Single line endpoints
-- **One-to-Many**: Arrow pointing to "many" side
-- **Many-to-Many**: Double arrows
+- **One-to-One**: Single arrow
+- **One-to-Many**: Arrow with label
+- **Many-to-Many**: Bidirectional indicators
 
 ## Smart Filtering
 
@@ -78,6 +110,8 @@ The parser recognizes common column types and displays them in abbreviated form:
 | `$table->json()` | `t.json` | `json` |
 
 ## Architecture
+
+See [Renderer Architecture](./renderer-architecture.md) for details on the multi-renderer pattern.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -101,9 +135,12 @@ The parser recognizes common column types and displays them in abbreviated form:
 ┌─────────────────────────────────────────────────────────┐
 │              ERD Canvas Panel (Renderer)                 │
 │  app/components/panels/viz/erd/                         │
-│  ├─ ERDCanvasPanel.tsx    - Main panel component        │
-│  ├─ EntityShapeUtil.tsx   - Custom tldraw shape         │
-│  └─ erdUtils.ts           - Layout (Dagre) + rendering  │
+│  ├─ ERDCanvasPanel.tsx    - Panel + renderer selector   │
+│  ├─ layout/erd-layout.ts  - Shared Dagre layout         │
+│  └─ renderers/                                          │
+│      ├─ TldrawRenderer    - Infinite canvas             │
+│      ├─ ReactFlowRenderer - Node graph                  │
+│      └─ JsonRenderer      - Data inspector              │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -148,9 +185,11 @@ erDiagram
 
 ## Dependencies
 
-- **tldraw** `^4.2.3` - Infinite canvas SDK
+- **tldraw** `^4.2.3` - Infinite canvas SDK (Canvas renderer)
+- **@xyflow/react** `^12.x` - Node-based UI library (Graph renderer)
+- **react-json-view-lite** `^2.x` - JSON tree viewer (JSON renderer)
 - **dagre** `^0.8.5` - Directed graph layout algorithm
 
 ## Theming
 
-The ERD canvas respects Ledger's theme (light/dark mode). CSS variables from `app/styles/app.css` are mapped to tldraw's theme system for consistent appearance.
+All renderers respect Ledger's theme (light/dark mode). CSS variables from `app/styles/app.css` are used for consistent appearance across renderers.
