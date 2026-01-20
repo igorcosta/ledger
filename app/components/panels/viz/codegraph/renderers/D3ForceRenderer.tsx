@@ -27,10 +27,22 @@ interface D3Link extends d3.SimulationLinkDatum<D3Node> {
 }
 
 /**
- * Get color for node based on category (for Laravel/Rails) or kind
+ * Get color for node based on change status, category, or kind
  */
-function getNodeColor(node: CodeNode): string {
-  // Check for category first (Laravel: model/controller/service)
+function getNodeColor(node: CodeNode, showDiffColors: boolean = false): string {
+  // If diff mode is enabled, check for change status first
+  if (showDiffColors && node.changeStatus) {
+    switch (node.changeStatus) {
+      case 'added':
+        return '#22c55e' // bright green - new files
+      case 'modified':
+        return '#22c55e' // bright green - modified files
+      case 'deleted':
+        return '#ef4444' // red - deleted files
+    }
+  }
+
+  // Check for category (Laravel: model/controller/service)
   const category = (node as unknown as { category?: string }).category
   if (category) {
     switch (category) {
@@ -117,6 +129,9 @@ export function D3ForceRenderer({ schema }: D3ForceRendererProps) {
     const container = containerRef.current
     const width = container.clientWidth
     const height = container.clientHeight
+
+    // Check if diff mode is active (any node has changeStatus)
+    const showDiffColors = schema.nodes.some((n) => n.changeStatus !== undefined)
 
     // Clear previous SVG
     d3.select(container).selectAll('svg').remove()
@@ -249,7 +264,7 @@ export function D3ForceRenderer({ schema }: D3ForceRendererProps) {
     node
       .append('circle')
       .attr('r', (d) => getNodeRadius(d.data.kind))
-      .attr('fill', (d) => getNodeColor(d.data))
+      .attr('fill', (d) => getNodeColor(d.data, showDiffColors))
       .attr('stroke', '#fff')
       .attr('stroke-width', 1.5)
 

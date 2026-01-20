@@ -9,6 +9,9 @@ export const CodeNodeKindSchema = z.enum(['file', 'class', 'interface', 'functio
 // Edge kind enum
 export const CodeEdgeKindSchema = z.enum(['imports', 'extends', 'implements', 'includes', 'exports'])
 
+// Node change status enum
+export const CodeNodeChangeStatusSchema = z.enum(['added', 'modified', 'deleted']).optional()
+
 // Node schema
 export const CodeNodeSchema = z.object({
   id: z.string(),
@@ -27,6 +30,7 @@ export const CodeNodeSchema = z.object({
       y: z.number(),
     })
     .optional(),
+  changeStatus: CodeNodeChangeStatusSchema,
 })
 
 // Edge schema
@@ -73,6 +77,13 @@ export const CodeGraphParseOptionsSchema = z.object({
   excludePatterns: z.array(z.string()).optional(),
 })
 
+// Diff status result schema
+export const CodeGraphDiffStatusResultSchema = z.object({
+  success: z.boolean(),
+  data: z.record(z.string(), z.enum(['added', 'modified', 'deleted'])).optional(),
+  message: z.string().optional(),
+})
+
 // IPC schema definitions
 export const codegraphIpcSchema = {
   'get-codegraph-schema': {
@@ -82,6 +93,10 @@ export const codegraphIpcSchema = {
   'detect-codegraph-language': {
     args: z.tuple([z.string().optional()]),
     return: CodeGraphLanguageResultSchema,
+  },
+  'get-codegraph-diff-status': {
+    args: z.tuple([z.string().optional()]),
+    return: CodeGraphDiffStatusResultSchema,
   },
 }
 

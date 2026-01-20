@@ -8,10 +8,10 @@
  * Supports TypeScript, PHP, and Ruby codebases via AST parsing.
  */
 
-import { useCallback, useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react'
 import { D3ForceRenderer } from './renderers/D3ForceRenderer'
 import { JsonRenderer } from './renderers/JsonRenderer'
-import type { CodeGraphSchema, CodeGraphLanguage } from '@/app/types/electron'
+import type { CodeGraphSchema, CodeGraphLanguage, CodeNode } from '@/app/types/electron'
 
 // Renderer types
 type RendererType = 'd3force' | 'json'
@@ -41,6 +41,8 @@ export function CodeGraphPanel({ repoPath }: CodeGraphPanelProps) {
   const [loadingState, setLoadingState] = useState<LoadingState>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [renderer, setRenderer] = useState<RendererType>('d3force')
+  const [showDiff, setShowDiff] = useState(false)
+  const [diffStatus, setDiffStatus] = useState<Record<string, 'added' | 'modified' | 'deleted'> | null>(null)
 
   // Load code graph when repo path changes
   const loadGraph = useCallback(async () => {
@@ -102,10 +104,52 @@ export function CodeGraphPanel({ repoPath }: CodeGraphPanelProps) {
   // Refresh handler
   const handleRefresh = useCallback(() => {
     loadGraph()
-  }, [loadGraph])
+    if (showDiff) {
+      loadDiffStatus()
+    }
+  }, [loadGraph, showDiff, loadDiffStatus])
 
-  // Use schema directly (all filtering happens in parser now)
-  const filteredSchema = schema
+  // Load diff status when toggle is enabled
+  const loadDiffStatus = useCallback(async () => {
+    if (!repoPath) return
+    try {
+      const result = await window.electronAPI.getCodeGraphDiffStatus(repoPath)
+      if (result.success && result.data) {
+        setDiffStatus(result.data)
+      }
+    } catch (_err) {
+      // Silently fail - diff overlay is optional
+    }
+  }, [repoPath])
+
+  // Fetch diff status when showDiff changes
+  useEffect(() => {
+    if (showDiff && repoPath) {
+      loadDiffStatus()
+    } else {
+      setDiffStatus(null)
+    }
+  }, [showDiff, repoPath, loadDiffStatus])
+
+  // Merge diff status into schema nodes
+  const schemaWithDiff = useMemo((): CodeGraphSchema | null => {
+    if (!schema) return null
+    if (!showDiff || !diffStatus) return schema
+
+    const nodesWithDiff: CodeNode[] = schema.nodes.map((node) => {
+      // Check if the node's file has changes
+      const status = diffStatus[node.filePath]
+      if (status) {
+        return { ...node, changeStatus: status }
+      }
+      return node
+    })
+
+    return { ...schema, nodes: nodesWithDiff }
+  }, [schema, showDiff, diffStatus])
+
+  // Use schema with diff overlay
+  const filteredSchema = schemaWithDiff
 
   // Language badge
   const languageBadge = language && (
@@ -201,6 +245,15 @@ export function CodeGraphPanel({ repoPath }: CodeGraphPanelProps) {
           </span>
         </div>
         <div className="codegraph-actions">
+          {/* Uncommitted diff toggle */}
+          <label className="codegraph-toggle" title="Show uncommitted changes">
+            <input
+              type="checkbox"
+              checked={showDiff}
+              onChange={(e) => setShowDiff(e.target.checked)}
+            />
+            <span>Diff</span>
+          </label>
           {/* Renderer toggle */}
           <div className="codegraph-renderer-toggle">
             {RENDERER_OPTIONS.map((option) => (

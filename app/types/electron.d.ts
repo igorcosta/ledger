@@ -514,6 +514,8 @@ export type CodeGraphLanguage = 'typescript' | 'javascript' | 'php' | 'ruby' | '
 export type CodeNodeKind = 'file' | 'class' | 'interface' | 'function' | 'module' | 'trait' | 'enum'
 export type CodeEdgeKind = 'imports' | 'extends' | 'implements' | 'includes' | 'exports'
 
+export type CodeNodeChangeStatus = 'added' | 'modified' | 'deleted' | undefined
+
 export interface CodeNode {
   id: string
   kind: CodeNodeKind
@@ -526,6 +528,7 @@ export interface CodeNode {
   namespace?: string
   exported?: boolean
   position?: { x: number; y: number }
+  changeStatus?: CodeNodeChangeStatus
 }
 
 export interface CodeEdge {
@@ -565,6 +568,12 @@ export interface CodeGraphParseOptions {
   includeTypeImports?: boolean
   maxDepth?: number
   excludePatterns?: string[]
+}
+
+export interface CodeGraphDiffStatusResult {
+  success: boolean
+  data?: Record<string, 'added' | 'modified' | 'deleted'>
+  message?: string
 }
 
 export interface ElectronAPI {
@@ -747,6 +756,7 @@ export interface ElectronAPI {
   // Code Graph operations
   getCodeGraphSchema: (repoPath?: string, options?: CodeGraphParseOptions) => Promise<CodeGraphParseResult>
   detectCodeGraphLanguage: (repoPath?: string) => Promise<CodeGraphLanguageResult>
+  getCodeGraphDiffStatus: (repoPath?: string) => Promise<CodeGraphDiffStatusResult>
 }
 
 // Canvas configuration types for persistence

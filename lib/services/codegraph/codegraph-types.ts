@@ -33,6 +33,11 @@ export type CodeEdgeKind =
   | 'exports' // Re-export from another module
 
 /**
+ * Git change status for a node
+ */
+export type CodeNodeChangeStatus = 'added' | 'modified' | 'deleted' | undefined
+
+/**
  * A node in the code graph (file, class, function, etc.)
  */
 export interface CodeNode {
@@ -58,6 +63,8 @@ export interface CodeNode {
   exported?: boolean
   /** Position for layout (set by renderer) */
   position?: { x: number; y: number }
+  /** Git change status (set when diff overlay is enabled) */
+  changeStatus?: CodeNodeChangeStatus
 }
 
 /**

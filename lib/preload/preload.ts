@@ -224,6 +224,7 @@ const electronAPI = {
   getCodeGraphSchema: (repoPath?: string, options?: unknown) =>
     ipcRenderer.invoke('get-codegraph-schema', repoPath, options),
   detectCodeGraphLanguage: (repoPath?: string) => ipcRenderer.invoke('detect-codegraph-language', repoPath),
+  getCodeGraphDiffStatus: (repoPath?: string) => ipcRenderer.invoke('get-codegraph-diff-status', repoPath),
 }
 
 // Security verification (from kaurifund's bug fix)
