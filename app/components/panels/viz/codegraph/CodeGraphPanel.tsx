@@ -34,6 +34,8 @@ interface CodeGraphPanelProps {
 
 type LoadingState = 'idle' | 'loading' | 'success' | 'error' | 'no-graph'
 
+const DEFAULT_NODE_LIMIT = 5 // Start minimal, user reveals more
+
 export function CodeGraphPanel({ repoPath }: CodeGraphPanelProps) {
   const loadVersionRef = useRef(0)
   const [schema, setSchema] = useState<CodeGraphSchema | null>(null)
@@ -43,6 +45,7 @@ export function CodeGraphPanel({ repoPath }: CodeGraphPanelProps) {
   const [renderer, setRenderer] = useState<RendererType>('d3force')
   const [showDiff, setShowDiff] = useState(false)
   const [diffStatus, setDiffStatus] = useState<Record<string, 'added' | 'modified' | 'deleted'> | null>(null)
+  const [nodeLimit, setNodeLimit] = useState<number>(DEFAULT_NODE_LIMIT)
 
   // Load code graph when repo path changes
   const loadGraph = useCallback(async () => {
@@ -148,8 +151,43 @@ export function CodeGraphPanel({ repoPath }: CodeGraphPanelProps) {
     return { ...schema, nodes: nodesWithDiff }
   }, [schema, showDiff, diffStatus])
 
-  // Use schema with diff overlay
-  const filteredSchema = schemaWithDiff
+  // Calculate connection counts and filter to top N nodes
+  const filteredSchema = useMemo((): CodeGraphSchema | null => {
+    if (!schemaWithDiff) return null
+
+    // Count connections for each node
+    const connectionCounts = new Map<string, number>()
+    schemaWithDiff.nodes.forEach((node) => connectionCounts.set(node.id, 0))
+
+    schemaWithDiff.edges.forEach((edge) => {
+      connectionCounts.set(edge.source, (connectionCounts.get(edge.source) || 0) + 1)
+      connectionCounts.set(edge.target, (connectionCounts.get(edge.target) || 0) + 1)
+    })
+
+    // Sort nodes by connection count (descending) and take top N
+    const sortedNodes = [...schemaWithDiff.nodes].sort((a, b) => {
+      const countA = connectionCounts.get(a.id) || 0
+      const countB = connectionCounts.get(b.id) || 0
+      return countB - countA
+    })
+
+    const topNodes = sortedNodes.slice(0, nodeLimit)
+    const topNodeIds = new Set(topNodes.map((n) => n.id))
+
+    // Filter edges to only include those between visible nodes
+    const filteredEdges = schemaWithDiff.edges.filter(
+      (edge) => topNodeIds.has(edge.source) && topNodeIds.has(edge.target)
+    )
+
+    return {
+      ...schemaWithDiff,
+      nodes: topNodes,
+      edges: filteredEdges,
+    }
+  }, [schemaWithDiff, nodeLimit])
+
+  // Max nodes for slider (total nodes in schema)
+  const totalNodes = schema?.nodes.length || 0
 
   // Language badge
   const languageBadge = language && (
@@ -170,11 +208,11 @@ export function CodeGraphPanel({ repoPath }: CodeGraphPanelProps) {
   const renderContent = () => {
     switch (renderer) {
       case 'd3force':
-        return <D3ForceRenderer schema={filteredSchema} />
+        return <D3ForceRenderer schema={filteredSchema} totalNodes={totalNodes} />
       case 'json':
         return <JsonRenderer schema={filteredSchema} />
       default:
-        return <D3ForceRenderer schema={filteredSchema} />
+        return <D3ForceRenderer schema={filteredSchema} totalNodes={totalNodes} />
     }
   }
 
@@ -245,6 +283,22 @@ export function CodeGraphPanel({ repoPath }: CodeGraphPanelProps) {
           </span>
         </div>
         <div className="codegraph-actions">
+          {/* Node limit slider */}
+          {totalNodes > 0 && (
+            <div className="codegraph-slider-group" title="Show top N nodes by connection count">
+              <label className="codegraph-slider-label">
+                Top {nodeLimit} of {totalNodes}
+              </label>
+              <input
+                type="range"
+                className="codegraph-slider"
+                min={5}
+                max={Math.max(totalNodes, 5)}
+                value={Math.min(nodeLimit, totalNodes)}
+                onChange={(e) => setNodeLimit(parseInt(e.target.value, 10))}
+              />
+            </div>
+          )}
           {/* Uncommitted diff toggle */}
           <label className="codegraph-toggle" title="Show uncommitted changes">
             <input

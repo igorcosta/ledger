@@ -9562,6 +9562,56 @@ body,
   cursor: pointer;
 }
 
+/* Node limit slider */
+.codegraph-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-right: 1px solid var(--border-primary);
+}
+
+.codegraph-slider-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  min-width: 90px;
+}
+
+.codegraph-slider {
+  width: 180px;
+  height: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.codegraph-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.codegraph-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.codegraph-slider:hover::-webkit-slider-thumb {
+  transform: scale(1.1);
+}
+
 .codegraph-action-button {
   display: flex;
   align-items: center;
