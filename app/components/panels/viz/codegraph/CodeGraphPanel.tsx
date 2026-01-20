@@ -1,0 +1,229 @@
+/**
+ * Code Graph Panel
+ *
+ * Visualizes code dependencies with renderer options:
+ * - Force (D3): Force-directed network with organic clustering
+ * - JSON: Raw data inspector
+ *
+ * Supports TypeScript, PHP, and Ruby codebases via AST parsing.
+ */
+
+import { useCallback, useEffect, useState, useRef } from 'react'
+import { D3ForceRenderer } from './renderers/D3ForceRenderer'
+import { JsonRenderer } from './renderers/JsonRenderer'
+import type { CodeGraphSchema, CodeGraphLanguage } from '@/app/types/electron'
+
+// Renderer types
+type RendererType = 'd3force' | 'json'
+
+interface RendererOption {
+  id: RendererType
+  label: string
+  icon: string
+  title: string
+}
+
+const RENDERER_OPTIONS: RendererOption[] = [
+  { id: 'd3force', label: 'Force', icon: '◎', title: 'Force-directed network (D3)' },
+  { id: 'json', label: 'JSON', icon: '{ }', title: 'Raw data inspector' },
+]
+
+interface CodeGraphPanelProps {
+  repoPath: string | null
+}
+
+type LoadingState = 'idle' | 'loading' | 'success' | 'error' | 'no-graph'
+
+export function CodeGraphPanel({ repoPath }: CodeGraphPanelProps) {
+  const loadVersionRef = useRef(0)
+  const [schema, setSchema] = useState<CodeGraphSchema | null>(null)
+  const [language, setLanguage] = useState<CodeGraphLanguage | null>(null)
+  const [loadingState, setLoadingState] = useState<LoadingState>('idle')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [renderer, setRenderer] = useState<RendererType>('d3force')
+
+  // Load code graph when repo path changes
+  const loadGraph = useCallback(async () => {
+    if (!repoPath) {
+      setLoadingState('idle')
+      setSchema(null)
+      return
+    }
+
+    const currentVersion = ++loadVersionRef.current
+
+    setLoadingState('loading')
+    setErrorMessage(null)
+
+    try {
+      // Detect language first
+      const languageResult = await window.electronAPI.detectCodeGraphLanguage(repoPath)
+
+      if (loadVersionRef.current !== currentVersion) return
+
+      if (languageResult.success && languageResult.data) {
+        setLanguage(languageResult.data as CodeGraphLanguage)
+      }
+
+      // Parse code graph
+      const result = await window.electronAPI.getCodeGraphSchema(repoPath, {
+        includeTests: false,
+        includeNodeModules: false,
+      })
+
+      if (loadVersionRef.current !== currentVersion) return
+
+      if (result.success && result.data) {
+        const parsedSchema = result.data as CodeGraphSchema
+
+        if (parsedSchema.nodes.length === 0) {
+          setLoadingState('no-graph')
+          setSchema(null)
+        } else {
+          setSchema(parsedSchema)
+          setLoadingState('success')
+        }
+      } else {
+        setErrorMessage(result.message || 'Failed to parse code graph')
+        setLoadingState('error')
+      }
+    } catch (err) {
+      if (loadVersionRef.current !== currentVersion) return
+      setErrorMessage(err instanceof Error ? err.message : 'Unknown error')
+      setLoadingState('error')
+    }
+  }, [repoPath])
+
+  // Load on mount and when repo changes
+  useEffect(() => {
+    loadGraph()
+  }, [loadGraph])
+
+  // Refresh handler
+  const handleRefresh = useCallback(() => {
+    loadGraph()
+  }, [loadGraph])
+
+  // Use schema directly (all filtering happens in parser now)
+  const filteredSchema = schema
+
+  // Language badge
+  const languageBadge = language && (
+    <span className={`codegraph-language-badge codegraph-language-${language}`}>
+      {language === 'typescript'
+        ? '🔷 TypeScript'
+        : language === 'javascript'
+          ? '🟨 JavaScript'
+          : language === 'php'
+            ? '🐘 PHP'
+            : language === 'ruby'
+              ? '💎 Ruby'
+              : language}
+    </span>
+  )
+
+  // Render the selected renderer
+  const renderContent = () => {
+    switch (renderer) {
+      case 'd3force':
+        return <D3ForceRenderer schema={filteredSchema} />
+      case 'json':
+        return <JsonRenderer schema={filteredSchema} />
+      default:
+        return <D3ForceRenderer schema={filteredSchema} />
+    }
+  }
+
+  // Render loading/error states
+  if (loadingState === 'idle' || !repoPath) {
+    return (
+      <div className="codegraph-container codegraph-empty-state">
+        <div className="codegraph-empty-content">
+          <span className="codegraph-empty-icon">🔗</span>
+          <p>Select a repository to visualize its code graph</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadingState === 'loading') {
+    return (
+      <div className="codegraph-container codegraph-loading-state">
+        <div className="codegraph-loading-content">
+          <span className="codegraph-loading-spinner" />
+          <p>Parsing code dependencies...</p>
+          <p className="codegraph-loading-hint">This may take a moment for large codebases</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadingState === 'error') {
+    return (
+      <div className="codegraph-container codegraph-error-state">
+        <div className="codegraph-error-content">
+          <span className="codegraph-error-icon">⚠️</span>
+          <p>Failed to parse code graph</p>
+          <p className="codegraph-error-message">{errorMessage}</p>
+          <button className="codegraph-retry-button" onClick={handleRefresh}>
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadingState === 'no-graph') {
+    return (
+      <div className="codegraph-container codegraph-empty-state">
+        <div className="codegraph-empty-content">
+          <span className="codegraph-empty-icon">🔍</span>
+          <p>No code dependencies found</p>
+          <p className="codegraph-empty-hint">
+            Supports TypeScript, JavaScript, PHP, and Ruby projects
+          </p>
+          <button className="codegraph-retry-button" onClick={handleRefresh}>
+            Scan Again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Success state
+  return (
+    <div className="codegraph-container">
+      <div className="codegraph-header">
+        <div className="codegraph-title">
+          {languageBadge}
+          <span className="codegraph-stats">
+            {filteredSchema?.nodes.length || 0} nodes, {filteredSchema?.edges.length || 0} edges
+          </span>
+        </div>
+        <div className="codegraph-actions">
+          {/* Renderer toggle */}
+          <div className="codegraph-renderer-toggle">
+            {RENDERER_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                className={`codegraph-renderer-btn ${renderer === option.id ? 'active' : ''}`}
+                onClick={() => setRenderer(option.id)}
+                title={option.title}
+              >
+                <span className="codegraph-renderer-icon">{option.icon}</span>
+                <span className="codegraph-renderer-label">{option.label}</span>
+              </button>
+            ))}
+          </div>
+          {/* Refresh button */}
+          <button className="codegraph-action-button" onClick={handleRefresh} title="Refresh graph">
+            ↻
+          </button>
+        </div>
+      </div>
+      <div className="codegraph-wrapper">{renderContent()}</div>
+    </div>
+  )
+}
+
+export default CodeGraphPanel

@@ -509,6 +509,64 @@ export interface ERDFrameworkResult {
   message?: string
 }
 
+// Code Graph types
+export type CodeGraphLanguage = 'typescript' | 'javascript' | 'php' | 'ruby' | 'mixed'
+export type CodeNodeKind = 'file' | 'class' | 'interface' | 'function' | 'module' | 'trait' | 'enum'
+export type CodeEdgeKind = 'imports' | 'extends' | 'implements' | 'includes' | 'exports'
+
+export interface CodeNode {
+  id: string
+  kind: CodeNodeKind
+  name: string
+  displayName: string
+  filePath: string
+  line?: number
+  endLine?: number
+  language: CodeGraphLanguage
+  namespace?: string
+  exported?: boolean
+  position?: { x: number; y: number }
+}
+
+export interface CodeEdge {
+  id: string
+  kind: CodeEdgeKind
+  source: string
+  target: string
+  resolved: boolean
+  line?: number
+  specifier?: string
+}
+
+export interface CodeGraphSchema {
+  nodes: CodeNode[]
+  edges: CodeEdge[]
+  language: CodeGraphLanguage
+  rootPath: string
+  parsedAt: string
+  parserVersion: string
+}
+
+export interface CodeGraphParseResult {
+  success: boolean
+  data?: CodeGraphSchema
+  message?: string
+}
+
+export interface CodeGraphLanguageResult {
+  success: boolean
+  data?: CodeGraphLanguage
+  message?: string
+}
+
+export interface CodeGraphParseOptions {
+  includeNodeModules?: boolean
+  includeTests?: boolean
+  includeTypeImports?: boolean
+  maxDepth?: number
+  excludePatterns?: string[]
+}
+
 export interface ElectronAPI {
   selectRepo: () => Promise<string | null>
   getRepoPath: () => Promise<string | null>
@@ -686,6 +744,9 @@ export interface ElectronAPI {
   getERDSchema: (repoPath?: string) => Promise<ERDParseResult>
   detectERDFramework: (repoPath?: string) => Promise<ERDFrameworkResult>
   parseMermaidERD: (content: string) => Promise<ERDParseResult>
+  // Code Graph operations
+  getCodeGraphSchema: (repoPath?: string, options?: CodeGraphParseOptions) => Promise<CodeGraphParseResult>
+  detectCodeGraphLanguage: (repoPath?: string) => Promise<CodeGraphLanguageResult>
 }
 
 // Canvas configuration types for persistence
