@@ -402,6 +402,7 @@ export function CanvasRenderer({
           { id: 'git-graph', label: 'Git Graph', icon: '◉' },
           { id: 'timeline', label: 'Timeline', icon: '◔' },
           { id: 'tech-tree', label: 'Tech Tree', icon: '⬡' },
+          { id: 'file-graph', label: 'Code Map', icon: '▦' },
         ]
         
         return (
@@ -514,14 +515,11 @@ export function CanvasRenderer({
         case 'file-graph':
           return (
             <div className="viz-panel file-graph-panel">
-              <div className="column-header">
-                <div className="column-title">
-                  <h2>
-                    <span className="column-icon">{column.icon || '▦'}</span>
-                    {column.label || 'Code Map'}
-                  </h2>
-                </div>
-              </div>
+              <VizHeader 
+                panel={column.panel}
+                label={column.label || 'Code Map'} 
+                icon={column.icon || '▦'} 
+              />
               <div className="viz-panel-content file-graph-content">
                 <FileGraph data={data.fileGraph} loading={data.fileGraphLoading} />
               </div>

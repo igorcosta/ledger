@@ -112,7 +112,7 @@ export function FileGraph({ data, loading }: FileGraphProps) {
   }, [])
 
   const getNodeColor = useCallback((node: FileNode): string => {
-    if (node.isDirectory) return 'var(--bg-tertiary)'
+    if (node.isDirectory) return 'var(--bg-hover)'
     const language = node.language || 'Other'
     return languageColorMap.get(language) || DEFAULT_LANGUAGE_COLOR
   }, [languageColorMap])
