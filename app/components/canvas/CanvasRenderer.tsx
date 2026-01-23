@@ -31,6 +31,7 @@ import { EditorSlot } from './EditorSlot'
 // Import panels
 import { PRList, BranchList, WorktreeList, StashList, CommitList, Sidebar, RepoList } from '../panels/list'
 import { GitGraph, ContributorChart, TechTreeChart, FileGraph } from '../panels/viz'
+import { ERDCanvasPanel } from '../panels/viz/erd'
 
 // ========================================
 // Data Interface
@@ -402,6 +403,7 @@ export function CanvasRenderer({
           { id: 'git-graph', label: 'Git Graph', icon: '◉' },
           { id: 'timeline', label: 'Timeline', icon: '◔' },
           { id: 'tech-tree', label: 'Tech Tree', icon: '⬡' },
+          { id: 'erd-canvas', label: 'ERD', icon: '◫' },
           { id: 'file-graph', label: 'Code Map', icon: '▦' },
         ]
         
@@ -495,10 +497,10 @@ export function CanvasRenderer({
         case 'tech-tree':
           return (
             <div className="viz-panel tech-tree-panel">
-              <VizHeader 
+              <VizHeader
                 panel={column.panel}
-                label={column.label || 'Tech Tree'} 
-                icon={column.icon || '⬡'} 
+                label={column.label || 'Tech Tree'}
+                icon={column.icon || '⬡'}
               />
               <div className="viz-panel-content">
                 <TechTreeChart
@@ -508,6 +510,20 @@ export function CanvasRenderer({
                     handlers.onSelectTechTreeNode?.(node.branchName)
                   }}
                 />
+              </div>
+            </div>
+          )
+
+        case 'erd-canvas':
+          return (
+            <div className="viz-panel erd-canvas-panel">
+              <VizHeader
+                panel={column.panel}
+                label={column.label || 'ERD'}
+                icon={column.icon || '◫'}
+              />
+              <div className="viz-panel-content erd-canvas-content">
+                <ERDCanvasPanel repoPath={data.repoPath} />
               </div>
             </div>
           )
@@ -536,6 +552,7 @@ export function CanvasRenderer({
     },
     [
       data.commits,
+      data.repoPath,
       data.fileGraph,
       data.fileGraphLoading,
       selection.selectedCommit,
