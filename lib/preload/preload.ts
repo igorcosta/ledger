@@ -90,6 +90,7 @@ const electronAPI = {
   getWorktrees: () => ipcRenderer.invoke('get-worktrees'),
   // Checkout operations
   checkoutBranch: (branchName: string) => ipcRenderer.invoke('checkout-branch', branchName),
+  checkoutCommit: (commitHash: string, branchName?: string) => ipcRenderer.invoke('checkout-commit', commitHash, branchName),
   createBranch: (branchName: string, checkout?: boolean) => ipcRenderer.invoke('create-branch', branchName, checkout),
   deleteBranch: (branchName: string, force?: boolean) => ipcRenderer.invoke('delete-branch', branchName, force),
   renameBranch: (oldName: string, newName: string) => ipcRenderer.invoke('rename-branch', oldName, newName),
@@ -150,7 +151,7 @@ const electronAPI = {
   applyWorktreeChanges: (worktreePath: string) => ipcRenderer.invoke('apply-worktree-changes', worktreePath),
   removeWorktree: (worktreePath: string, force?: boolean) =>
     ipcRenderer.invoke('remove-worktree', worktreePath, force ?? false),
-  createWorktree: (options: { branchName: string; isNewBranch: boolean; folderPath: string }) =>
+  createWorktree: (options: { branchName?: string; commitHash?: string; isNewBranch: boolean; folderPath: string }) =>
     ipcRenderer.invoke('create-worktree', options),
   selectWorktreeFolder: () => ipcRenderer.invoke('select-worktree-folder'),
   // Worktree-specific staging & commit operations
@@ -196,6 +197,8 @@ const electronAPI = {
   mergePR: (prNumber: number, mergeMethod?: 'merge' | 'squash' | 'rebase') => ipcRenderer.invoke('merge-pr', prNumber, mergeMethod),
   // Tech tree operations
   getMergedBranchTree: (limit?: number) => ipcRenderer.invoke('get-merged-branch-tree', limit),
+  // FileGraph operations
+  getFileGraph: () => ipcRenderer.invoke('get-file-graph'),
   // Theme operations
   getThemeMode: () => ipcRenderer.invoke('get-theme-mode'),
   getSelectedThemeId: () => ipcRenderer.invoke('get-selected-theme-id'),
@@ -215,6 +218,15 @@ const electronAPI = {
   updateCanvas: (canvasId: string, updates: unknown) => ipcRenderer.invoke('update-canvas', canvasId, updates),
   // Repo operations
   getSiblingRepos: () => ipcRenderer.invoke('get-sibling-repos'),
+  // ERD operations
+  getERDSchema: (repoPath?: string) => ipcRenderer.invoke('get-erd-schema', repoPath),
+  detectERDFramework: (repoPath?: string) => ipcRenderer.invoke('detect-erd-framework', repoPath),
+  parseMermaidERD: (content: string) => ipcRenderer.invoke('parse-mermaid-erd', content),
+  // Code Graph operations
+  getCodeGraphSchema: (repoPath?: string, options?: unknown) =>
+    ipcRenderer.invoke('get-codegraph-schema', repoPath, options),
+  detectCodeGraphLanguage: (repoPath?: string) => ipcRenderer.invoke('detect-codegraph-language', repoPath),
+  getCodeGraphDiffStatus: (repoPath?: string) => ipcRenderer.invoke('get-codegraph-diff-status', repoPath),
 }
 
 // Security verification (from kaurifund's bug fix)

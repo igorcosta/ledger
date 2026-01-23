@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { loadBuiltInTheme, loadVSCodeTheme, getSelectedThemeId, type ThemeMode } from '../theme'
 import { useCanvas } from './canvas/CanvasContext'
+import { AISettingsSection } from './AISettingsSection'
 import type { SlotType, PanelType, Column } from '../types/app-types'
 
 // Panel options grouped by slot type
@@ -23,6 +24,9 @@ const PANEL_OPTIONS: Record<SlotType, { value: PanelType; label: string }[]> = {
     { value: 'git-graph', label: 'Git Graph' },
     { value: 'timeline', label: 'Timeline' },
     { value: 'tech-tree', label: 'Tech Tree' },
+    { value: 'erd-canvas', label: 'ERD' },
+    { value: 'codegraph', label: 'Code Graph' },
+    { value: 'file-graph', label: 'Code Map' },
   ],
 }
 
@@ -604,6 +608,12 @@ export const SettingsPanel = ({ themeMode: _themeMode, onThemeChange, onBack }: 
             </button>
           </div>
         </div>
+
+        {/* Divider between sections */}
+        <div className="settings-divider" />
+
+        {/* AI Settings Section */}
+        <AISettingsSection />
 
         {/* Divider between sections */}
         <div className="settings-divider" />

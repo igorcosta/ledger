@@ -53,6 +53,35 @@ export type BranchFilter = 'all' | 'local-only' | 'unmerged'
 export type BranchSort = 'name' | 'last-commit' | 'first-commit' | 'most-commits'
 
 export type WorktreeSort = 'folder-name' | 'last-modified' | 'branch-name'
+
+// Preview system types
+export type PreviewType = 'local' | 'cloud'
+
+export interface PreviewProviderInfo {
+  id: string
+  name: string
+  description: string
+  icon: string
+  type: PreviewType
+  available: boolean
+  compatible: boolean
+  reason?: string
+}
+
+export interface PreviewResult {
+  success: boolean
+  message: string
+  url?: string
+  deploymentId?: string
+  warnings?: string[]
+  worktreePath?: string
+  provider?: string
+}
+
+export interface PreviewAvailability {
+  herdInstalled: boolean
+  isLaravel: boolean
+}
 export type StashFilter = 'all' | 'has-changes' | 'redundant'
 export type StashSort = 'date' | 'message' | 'branch'
 
@@ -342,7 +371,8 @@ export interface WorkingStatus {
 }
 
 export interface CreateWorktreeOptions {
-  branchName: string
+  branchName?: string // Optional if using commitHash for detached HEAD
+  commitHash?: string // For creating worktree at specific commit (detached HEAD)
   isNewBranch: boolean
   folderPath: string
 }
@@ -418,6 +448,153 @@ export interface TechTreeData {
   }
 }
 
+// ========================================
+// FileGraph Types (Code Treemap)
+// ========================================
+
+export interface FileNode {
+  name: string
+  path: string
+  lines: number
+  language: string | null
+  isDirectory: boolean
+  children?: FileNode[]
+}
+
+export interface FileGraphData {
+  root: FileNode
+  totalLines: number
+  languages: { language: string; lines: number; color: string }[]
+}
+
+// ERD (Entity Relationship Diagram) types
+export type ERDFramework = 'laravel' | 'rails' | 'generic'
+export type ERDConstraint = 'PK' | 'FK' | 'UK' | 'nullable' | 'indexed'
+export type ERDCardinality = 'one' | 'zero-or-one' | 'many' | 'one-or-more'
+
+export interface ERDForeignKey {
+  table: string
+  column: string
+}
+
+export interface ERDAttribute {
+  name: string
+  type: string
+  constraints: ERDConstraint[]
+  foreignKey?: ERDForeignKey
+  defaultValue?: string
+  comment?: string
+}
+
+export interface ERDEntity {
+  id: string
+  name: string
+  displayName: string
+  attributes: ERDAttribute[]
+  position?: { x: number; y: number }
+}
+
+export interface ERDRelationshipEndpoint {
+  entity: string
+  attribute?: string
+  cardinality: ERDCardinality
+}
+
+export interface ERDRelationship {
+  id: string
+  from: ERDRelationshipEndpoint
+  to: ERDRelationshipEndpoint
+  label?: string
+  type: 'identifying' | 'non-identifying'
+}
+
+export interface ERDSchema {
+  entities: ERDEntity[]
+  relationships: ERDRelationship[]
+  framework: ERDFramework
+  source: string
+  parsedAt: string
+}
+
+export interface ERDParseResult {
+  success: boolean
+  data?: ERDSchema
+  message?: string
+}
+
+export interface ERDFrameworkResult {
+  success: boolean
+  data?: ERDFramework
+  message?: string
+}
+
+// Code Graph types
+export type CodeGraphLanguage = 'typescript' | 'javascript' | 'php' | 'ruby' | 'mixed'
+export type CodeNodeKind = 'file' | 'class' | 'interface' | 'function' | 'module' | 'trait' | 'enum'
+export type CodeEdgeKind = 'imports' | 'extends' | 'implements' | 'includes' | 'exports'
+
+export type CodeNodeChangeStatus = 'added' | 'modified' | 'deleted' | undefined
+
+export interface CodeNode {
+  id: string
+  kind: CodeNodeKind
+  name: string
+  displayName: string
+  filePath: string
+  line?: number
+  endLine?: number
+  language: CodeGraphLanguage
+  namespace?: string
+  exported?: boolean
+  position?: { x: number; y: number }
+  changeStatus?: CodeNodeChangeStatus
+}
+
+export interface CodeEdge {
+  id: string
+  kind: CodeEdgeKind
+  source: string
+  target: string
+  resolved: boolean
+  line?: number
+  specifier?: string
+}
+
+export interface CodeGraphSchema {
+  nodes: CodeNode[]
+  edges: CodeEdge[]
+  language: CodeGraphLanguage
+  rootPath: string
+  parsedAt: string
+  parserVersion: string
+}
+
+export interface CodeGraphParseResult {
+  success: boolean
+  data?: CodeGraphSchema
+  message?: string
+}
+
+export interface CodeGraphLanguageResult {
+  success: boolean
+  data?: CodeGraphLanguage
+  message?: string
+}
+
+export interface CodeGraphParseOptions {
+  includeNodeModules?: boolean
+  includeTests?: boolean
+  includeTypeImports?: boolean
+  maxDepth?: number
+  excludePatterns?: string[]
+}
+
+export interface CodeGraphDiffStatusResult {
+  success: boolean
+  data?: Record<string, 'added' | 'modified' | 'deleted'>
+  message?: string
+}
+
 export interface ElectronAPI {
   selectRepo: () => Promise<string | null>
   getRepoPath: () => Promise<string | null>
@@ -429,6 +606,7 @@ export interface ElectronAPI {
   getWorktrees: () => Promise<Worktree[] | { error: string }>
   // Checkout operations
   checkoutBranch: (branchName: string) => Promise<CheckoutResult>
+  checkoutCommit: (commitHash: string, branchName?: string) => Promise<CheckoutResult>
   createBranch: (branchName: string, checkout?: boolean) => Promise<{ success: boolean; message: string }>
   deleteBranch: (branchName: string, force?: boolean) => Promise<{ success: boolean; message: string }>
   renameBranch: (oldName: string, newName: string) => Promise<{ success: boolean; message: string }>
@@ -580,6 +758,8 @@ export interface ElectronAPI {
   clearCustomTheme: () => Promise<{ success: boolean }>
   // Tech tree operations
   getMergedBranchTree: (limit?: number) => Promise<TechTreeData>
+  // FileGraph operations
+  getFileGraph: () => Promise<FileGraphData>
   // Canvas operations
   getCanvases: () => Promise<CanvasConfig[]>
   saveCanvases: (canvases: CanvasConfig[]) => Promise<{ success: boolean }>
@@ -590,6 +770,14 @@ export interface ElectronAPI {
   updateCanvas: (canvasId: string, updates: Partial<CanvasConfig>) => Promise<{ success: boolean }>
   // Repo operations
   getSiblingRepos: () => Promise<RepoInfo[]>
+  // ERD operations
+  getERDSchema: (repoPath?: string) => Promise<ERDParseResult>
+  detectERDFramework: (repoPath?: string) => Promise<ERDFrameworkResult>
+  parseMermaidERD: (content: string) => Promise<ERDParseResult>
+  // Code Graph operations
+  getCodeGraphSchema: (repoPath?: string, options?: CodeGraphParseOptions) => Promise<CodeGraphParseResult>
+  detectCodeGraphLanguage: (repoPath?: string) => Promise<CodeGraphLanguageResult>
+  getCodeGraphDiffStatus: (repoPath?: string) => Promise<CodeGraphDiffStatusResult>
 }
 
 // Canvas configuration types for persistence
