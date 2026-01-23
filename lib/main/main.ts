@@ -138,7 +138,6 @@ import {
   getPRFileDiff,
   commentOnPR,
   mergePR,
-  // Note: getSiblingRepos, getMergedBranchTree now handled by conveyor analytics handlers
 } from './git-service'
 import {
   getLastRepoPath,

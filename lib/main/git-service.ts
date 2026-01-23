@@ -4640,10 +4640,3 @@ export async function commitChanges(
   }
 }
 
-// Repo info for sibling repos list
-export interface RepoInfo {
-  path: string
-  name: string
-  isCurrent: boolean
-}
-

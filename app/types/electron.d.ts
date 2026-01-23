@@ -448,6 +448,25 @@ export interface TechTreeData {
   }
 }
 
+// ========================================
+// FileGraph Types (Code Treemap)
+// ========================================
+
+export interface FileNode {
+  name: string
+  path: string
+  lines: number
+  language: string | null
+  isDirectory: boolean
+  children?: FileNode[]
+}
+
+export interface FileGraphData {
+  root: FileNode
+  totalLines: number
+  languages: { language: string; lines: number; color: string }[]
+}
+
 // ERD (Entity Relationship Diagram) types
 export type ERDFramework = 'laravel' | 'rails' | 'generic'
 export type ERDConstraint = 'PK' | 'FK' | 'UK' | 'nullable' | 'indexed'
@@ -739,6 +758,8 @@ export interface ElectronAPI {
   clearCustomTheme: () => Promise<{ success: boolean }>
   // Tech tree operations
   getMergedBranchTree: (limit?: number) => Promise<TechTreeData>
+  // FileGraph operations
+  getFileGraph: () => Promise<FileGraphData>
   // Canvas operations
   getCanvases: () => Promise<CanvasConfig[]>
   saveCanvases: (canvases: CanvasConfig[]) => Promise<{ success: boolean }>

@@ -30,7 +30,7 @@ import { EditorSlot } from './EditorSlot'
 
 // Import panels
 import { PRList, BranchList, WorktreeList, StashList, CommitList, Sidebar, RepoList } from '../panels/list'
-import { GitGraph, ContributorChart, TechTreeChart } from '../panels/viz'
+import { GitGraph, ContributorChart, TechTreeChart, FileGraph } from '../panels/viz'
 import { ERDCanvasPanel } from '../panels/viz/erd'
 import { CodeGraphPanel } from '../panels/viz/codegraph'
 
@@ -69,6 +69,10 @@ export interface CanvasData {
   // Commit diff (for viewing diffs)
   commitDiff: CommitDiff | null
   loadingDiff: boolean
+  
+  // FileGraph data
+  fileGraph: import('../../../types/electron').FileGraphData | null
+  fileGraphLoading: boolean
 }
 
 /**
@@ -401,7 +405,8 @@ export function CanvasRenderer({
           { id: 'timeline', label: 'Timeline', icon: '◔' },
           { id: 'tech-tree', label: 'Tech Tree', icon: '⬡' },
           { id: 'erd-canvas', label: 'ERD', icon: '◫' },
-          { id: 'codegraph', label: 'Code Graph', icon: '⬡' },
+          { id: 'codegraph', label: 'Code Graph', icon: '⬢' },
+          { id: 'file-graph', label: 'Code Map', icon: '▦' },
         ]
         
         return (
@@ -531,10 +536,24 @@ export function CanvasRenderer({
               <VizHeader
                 panel={column.panel}
                 label={column.label || 'Code Graph'}
-                icon={column.icon || '⬡'}
+                icon={column.icon || '⬢'}
               />
               <div className="viz-panel-content codegraph-content">
                 <CodeGraphPanel repoPath={data.repoPath} />
+              </div>
+            </div>
+          )
+
+        case 'file-graph':
+          return (
+            <div className="viz-panel file-graph-panel">
+              <VizHeader 
+                panel={column.panel}
+                label={column.label || 'Code Map'} 
+                icon={column.icon || '▦'} 
+              />
+              <div className="viz-panel-content file-graph-content">
+                <FileGraph data={data.fileGraph} loading={data.fileGraphLoading} />
               </div>
             </div>
           )
@@ -550,6 +569,8 @@ export function CanvasRenderer({
     [
       data.commits,
       data.repoPath,
+      data.fileGraph,
+      data.fileGraphLoading,
       selection.selectedCommit,
       handlers,
       activeCanvas,
